@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html data-bs-theme="dark">
+<head>
+    <title>Microgrid Stabilization Simulator</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container my-4">
+        <h1 class="text-center mb-4">Microgrid Stabilization Dashboard</h1>
+
+        <!-- Control Panel -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">Control Center</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Voltage Controls -->
+                        <div class="mb-4">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Voltage Adjustment</span>
+                                <small class="text-muted">Current Offset: <span id="voltageOffset">0</span>V</small>
+                            </label>
+                            <div class="btn-group w-100" role="group">
+                                <button class="btn btn-outline-danger" onclick="adjustValue('voltage', -10)">-10V</button>
+                                <button class="btn btn-outline-warning" onclick="adjustValue('voltage', -5)">-5V</button>
+                                <button class="btn btn-outline-success" onclick="adjustValue('voltage', 0)">Reset</button>
+                                <button class="btn btn-outline-warning" onclick="adjustValue('voltage', 5)">+5V</button>
+                                <button class="btn btn-outline-danger" onclick="adjustValue('voltage', 10)">+10V</button>
+                            </div>
+                        </div>
+                        <!-- Frequency Controls -->
+                        <div class="mb-4">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Frequency Adjustment</span>
+                                <small class="text-muted">Current Offset: <span id="frequencyOffset">0</span>Hz</small>
+                            </label>
+                            <div class="btn-group w-100" role="group">
+                                <button class="btn btn-outline-danger" onclick="adjustValue('frequency', -0.5)">-0.5Hz</button>
+                                <button class="btn btn-outline-warning" onclick="adjustValue('frequency', -0.2)">-0.2Hz</button>
+                                <button class="btn btn-outline-success" onclick="adjustValue('frequency', 0)">Reset</button>
+                                <button class="btn btn-outline-warning" onclick="adjustValue('frequency', 0.2)">+0.2Hz</button>
+                                <button class="btn btn-outline-danger" onclick="adjustValue('frequency', 0.5)">+0.5Hz</button>
+                            </div>
+                        </div>
+                        <!-- System Controls -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="autoStabilize" checked>
+                                <label class="form-check-label" for="autoStabilize">Auto-stabilization</label>
+                            </div>
+                            <button class="btn btn-info" onclick="showAnalysis()">
+                                <i class="bi bi-graph-up"></i> Analyze System
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Panel -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">System Analysis</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card bg-dark">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-2 text-muted">Voltage Stability</h6>
+                                        <h3 class="card-title mb-0" id="voltageStability">--</h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-dark">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-2 text-muted">Frequency Stability</h6>
+                                        <h3 class="card-title mb-0" id="frequencyStability">--</h3>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert" id="systemStatus" role="alert">
+                                    System analysis will appear here...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Voltage Section -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-primary bg-opacity-25">
+                        <h5 class="card-title mb-0">Voltage Monitoring</h5>
+                        <span id="voltageStatus" class="badge"></span>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 200px;">
+                            <canvas id="voltageChart"></canvas>
+                        </div>
+                        <div class="mt-3">
+                            <div class="row">
+                                <div class="col">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>Current:</span>
+                                        <span id="currentVoltage" class="badge bg-primary">--</span>V
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Predicted:</span>
+                                        <span id="predictedVoltage" class="badge bg-info">--</span>V
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="text-center">
+                                        <span>Control Action</span>
+                                        <h5><span id="voltageAction" class="badge bg-secondary">--</span></h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: 20%" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100">
+                                    Danger<br>&lt;207V
+                                </div>
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: 10%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100">
+                                    Warning<br>207-218V
+                                </div>
+                                <div class="progress-bar bg-success" role="progressbar" style="width: 40%" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100">
+                                    Safe<br>218-242V
+                                </div>
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: 10%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100">
+                                    Warning<br>242-253V
+                                </div>
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: 20%" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100">
+                                    Danger<br>&gt;253V
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frequency Section -->
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-success bg-opacity-25">
+                        <h5 class="card-title mb-0">Frequency Monitoring</h5>
+                        <span id="frequencyStatus" class="badge"></span>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 200px;">
+                            <canvas id="frequencyChart"></canvas>
+                        </div>
+                        <div class="mt-3">
+                            <div class="row">
+                                <div class="col">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>Current:</span>
+                                        <span id="currentFrequency" class="badge bg-primary">--</span>Hz
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Predicted:</span>
+                                        <span id="predictedFrequency" class="badge bg-info">--</span>Hz
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="text-center">
+                                        <span>Control Action</span>
+                                        <h5><span id="frequencyAction" class="badge bg-secondary">--</span></h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: 20%" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100">
+                                    Danger<br>&lt;49.5Hz
+                                </div>
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: 10%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100">
+                                    Warning<br>49.5-49.8Hz
+                                </div>
+                                <div class="progress-bar bg-success" role="progressbar" style="width: 40%" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100">
+                                    Safe<br>49.8-50.2Hz
+                                </div>
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: 10%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100">
+                                    Warning<br>50.2-50.5Hz
+                                </div>
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: 20%" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100">
+                                    Danger<br>&gt;50.5Hz
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
