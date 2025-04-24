@@ -88,6 +88,29 @@
                                 <i class="bi bi-graph-up"></i> Analyze System
                             </button>
                         </div>
+
+                        <!-- Stabilization Mode Controls -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">Stabilization Mode</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="stabilizationMode" id="standardMode" value="standard" checked>
+                                    <label class="form-check-label" for="standardMode">
+                                        Standard Mode
+                                        <small class="text-muted d-block">Shows real fluctuations with gradual corrections</small>
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="stabilizationMode" id="perfectMode" value="perfect">
+                                    <label class="form-check-label" for="perfectMode">
+                                        Perfect Mode
+                                        <small class="text-muted d-block">Forces exact nominal values (230V, 50Hz)</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                         
                         <!-- Destabilize and Immediate Stabilize Buttons -->
                         <div class="row mb-2">

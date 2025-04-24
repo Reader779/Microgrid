@@ -29,7 +29,8 @@ frequency_offset = 0
 auto_stabilize = True
 NOMINAL_VOLTAGE = 230.0
 NOMINAL_FREQUENCY = 50.0
-stabilize_enabled = True  # New flag to control continuous stabilization
+stabilize_enabled = True  # Flag to control continuous stabilization
+perfect_stabilization = False  # Flag to toggle between standard vs perfect stabilization
 
 @app.route('/')
 def index():
@@ -42,26 +43,38 @@ def background_task():
     while True:
         # Generate new data point with manual adjustments
         base_voltage, base_frequency = data_simulator.generate_data_point()
-        voltage = base_voltage + voltage_offset
-        frequency = base_frequency + frequency_offset
-
-        # Calculate how far we are from nominal values (used in both auto-stabilize and for display)
-        voltage_deviation = NOMINAL_VOLTAGE - voltage
-        frequency_deviation = NOMINAL_FREQUENCY - frequency
-
-        # Apply automatic stabilization if enabled
-        if auto_stabilize and stabilize_enabled:
-            # Apply gradual corrections (5% per cycle)
-            voltage_correction = voltage_deviation * 0.05
-            frequency_correction = frequency_deviation * 0.05
+        
+        # Perfect stabilization mode forces exact nominal values
+        if perfect_stabilization and auto_stabilize and stabilize_enabled:
+            # In perfect mode, we directly use the nominal values, ignoring the base values
+            voltage = NOMINAL_VOLTAGE
+            frequency = NOMINAL_FREQUENCY
+            voltage_deviation = 0
+            frequency_deviation = 0
+            # Reset offsets since we're forcing perfect values
+            voltage_offset = 0
+            frequency_offset = 0
+        else:
+            # Normal mode with fluctuations
+            voltage = base_voltage + voltage_offset
+            frequency = base_frequency + frequency_offset
+            # Calculate how far we are from nominal values
+            voltage_deviation = NOMINAL_VOLTAGE - voltage
+            frequency_deviation = NOMINAL_FREQUENCY - frequency
             
-            # Update offsets to stabilize the system
-            voltage_offset += voltage_correction
-            frequency_offset += frequency_correction
-            
-            # Log significant corrections
-            if abs(voltage_correction) > 0.5 or abs(frequency_correction) > 0.05:
-                logging.debug(f"Auto-stabilizing: V:{voltage_correction:.2f}, F:{frequency_correction:.2f}")
+            # Apply automatic stabilization if enabled (standard mode)
+            if auto_stabilize and stabilize_enabled:
+                # Apply gradual corrections (5% per cycle)
+                voltage_correction = voltage_deviation * 0.05
+                frequency_correction = frequency_deviation * 0.05
+                
+                # Update offsets to stabilize the system
+                voltage_offset += voltage_correction
+                frequency_offset += frequency_correction
+                
+                # Log significant corrections
+                if abs(voltage_correction) > 0.5 or abs(frequency_correction) > 0.05:
+                    logging.debug(f"Auto-stabilizing: V:{voltage_correction:.2f}, F:{frequency_correction:.2f}")
 
         # Update sequences
         voltage_sequence.append(voltage)
@@ -173,6 +186,12 @@ def handle_auto_stabilize(data):
         socketio.start_background_task(smooth_reset)
     
     logging.debug(f'Auto-stabilize set to: {auto_stabilize}')
+
+@socketio.on('set_stabilization_mode')
+def handle_stabilization_mode(data):
+    global perfect_stabilization
+    perfect_stabilization = data['perfect_mode']
+    logging.debug(f'Perfect stabilization mode set to: {perfect_stabilization}')
 
 if __name__ == '__main__':
     socketio.start_background_task(background_task)
