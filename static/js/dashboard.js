@@ -774,6 +774,9 @@ document.getElementById('standardMode').addEventListener('change', function() {
         });
         updateStabilizationStatus('Standard Stabilization Mode', 'bg-secondary');
         
+        // Re-enable the destabilize button when switching to standard mode
+        document.getElementById('destabilizeBtn').disabled = false;
+        
         // After a moment, revert to normal status display
         setTimeout(() => {
             if (!isDestabilized && !isStabilizing) {
