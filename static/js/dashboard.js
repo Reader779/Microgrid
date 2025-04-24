@@ -294,7 +294,6 @@ function destabilizeSystem() {
     
     // Set to destabilized state 
     isDestabilized = true;
-    const btn = document.getElementById('destabilizeBtn');
     btn.innerHTML = '<i class="bi bi-lightning-fill"></i> System Destabilized';
     btn.classList.add('active');
     
