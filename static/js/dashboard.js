@@ -172,6 +172,10 @@ function showAnalysis() {
         <p>Average Voltage: ${avgVoltage.toFixed(2)}V<br>
            Average Frequency: ${avgFrequency.toFixed(2)}Hz</p>
     `;
+    
+    // Update ML analysis and recommendations when analysis is shown
+    updateMachineLearningAnalysis();
+    updateSystemRecommendations();
 }
 
 // Update dashboard with new data
@@ -238,9 +242,265 @@ function updateActionBadge(element, action) {
          'bg-danger');
 }
 
+// Custom value adjustment function
+function adjustCustomValue(type, direction) {
+    const inputId = type === 'voltage' ? 'customVoltage' : 'customFrequency';
+    const input = document.getElementById(inputId);
+    let value = parseFloat(input.value);
+    
+    if (direction > 0) {
+        if (type === 'voltage') {
+            value = Math.min(25, value + 1);
+        } else {
+            value = Math.min(1, value + 0.1);
+        }
+    } else {
+        if (type === 'voltage') {
+            value = Math.max(1, value - 1);
+        } else {
+            value = Math.max(0.1, value - 0.1);
+        }
+    }
+    
+    input.value = type === 'voltage' ? value : value.toFixed(1);
+    
+    // Apply the custom value
+    adjustValue(type, type === 'voltage' ? value : value);
+}
+
+// Destabilize the system
+function destabilizeSystem() {
+    if (isDestabilized) {
+        return; // Already destabilized
+    }
+    
+    isDestabilized = true;
+    const btn = document.getElementById('destabilizeBtn');
+    btn.innerHTML = '<i class="bi bi-lightning-fill"></i> System Destabilized';
+    btn.classList.add('active');
+    
+    // Apply random offsets to voltage and frequency
+    const randomVoltageOffset = Math.random() > 0.5 ? 15 : -15;
+    const randomFrequencyOffset = Math.random() > 0.5 ? 0.8 : -0.8;
+    
+    adjustValue('voltage', randomVoltageOffset);
+    adjustValue('frequency', randomFrequencyOffset);
+    
+    document.getElementById('autoStabilize').checked = false;
+    socket.emit('set_auto_stabilize', { enabled: false });
+    
+    updateStabilizationStatus('System Destabilized', 'bg-danger');
+    
+    // Schedule auto-recovery after 15 seconds if auto-stabilize is checked
+    setTimeout(() => {
+        isDestabilized = false;
+        btn.innerHTML = '<i class="bi bi-lightning-fill"></i> Destabilize System';
+        btn.classList.remove('active');
+        
+        if (document.getElementById('autoStabilize').checked) {
+            recoverSystem();
+        }
+    }, 15000);
+    
+    // Update ML analysis
+    updateMachineLearningAnalysis();
+    updateSystemRecommendations();
+}
+
+// Recover the system from destabilization
+function recoverSystem() {
+    adjustValue('voltage', 0);
+    adjustValue('frequency', 0);
+    
+    document.getElementById('autoStabilize').checked = true;
+    socket.emit('set_auto_stabilize', { enabled: true });
+    
+    isStabilizing = true;
+    updateStabilizationStatus('Stabilization in Progress', 'bg-warning');
+    
+    // Simulate stabilization process
+    if (stabilizationTimer) clearTimeout(stabilizationTimer);
+    stabilizationTimer = setTimeout(() => {
+        isStabilizing = false;
+        updateStabilizationStatus('System Stabilized', 'bg-success');
+        
+        // Reset to monitoring state after 3 seconds
+        setTimeout(() => {
+            updateStabilizationStatus('System Monitoring Active', 'bg-secondary');
+        }, 3000);
+    }, 5000);
+    
+    // Update ML analysis
+    updateMachineLearningAnalysis();
+    updateSystemRecommendations();
+}
+
+// Update stabilization status indicator
+function updateStabilizationStatus(text, className) {
+    const stabilizationStatus = document.getElementById('stabilizationStatus');
+    stabilizationStatus.innerHTML = `<span class="badge ${className}">${text}</span>`;
+}
+
+// Update machine learning analysis
+function updateMachineLearningAnalysis() {
+    // Clear any existing timer
+    if (mlAnalysisTimer) clearTimeout(mlAnalysisTimer);
+    
+    // Calculate voltage trend
+    const voltageTrend = document.getElementById('voltageTrend');
+    const voltageTrendBar = document.getElementById('voltageTrendBar');
+    
+    // Calculate frequency trend
+    const frequencyTrend = document.getElementById('frequencyTrend');
+    const frequencyTrendBar = document.getElementById('frequencyTrendBar');
+    
+    // Set to analyzing state
+    voltageTrend.textContent = 'Analyzing...';
+    voltageTrend.className = 'badge bg-secondary';
+    voltageTrendBar.style.width = '50%';
+    voltageTrendBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+    
+    frequencyTrend.textContent = 'Analyzing...';
+    frequencyTrend.className = 'badge bg-secondary';
+    frequencyTrendBar.style.width = '50%';
+    frequencyTrendBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+    
+    // Simulate ML analysis (would be done by the server/ML model in a real app)
+    mlAnalysisTimer = setTimeout(() => {
+        // Analyze voltage trend
+        if (voltageData.length > 5) {
+            const recentVoltage = voltageData.slice(-5);
+            const voltageChanges = [];
+            
+            for (let i = 1; i < recentVoltage.length; i++) {
+                voltageChanges.push(recentVoltage[i] - recentVoltage[i-1]);
+            }
+            
+            const avgVoltageChange = voltageChanges.reduce((a, b) => a + b, 0) / voltageChanges.length;
+            let voltageStatus, voltageClass, voltagePercent;
+            
+            if (Math.abs(avgVoltageChange) < 0.5) {
+                voltageStatus = 'Stable';
+                voltageClass = 'bg-success';
+                voltagePercent = 90;
+            } else if (Math.abs(avgVoltageChange) < 1.5) {
+                voltageStatus = avgVoltageChange > 0 ? 'Gradually Rising' : 'Gradually Falling';
+                voltageClass = 'bg-info';
+                voltagePercent = 70;
+            } else {
+                voltageStatus = avgVoltageChange > 0 ? 'Rapidly Rising' : 'Rapidly Falling';
+                voltageClass = 'bg-warning';
+                voltagePercent = 40;
+            }
+            
+            voltageTrend.textContent = voltageStatus;
+            voltageTrend.className = `badge ${voltageClass}`;
+            voltageTrendBar.style.width = `${voltagePercent}%`;
+            voltageTrendBar.className = `progress-bar ${voltageClass}`;
+        }
+        
+        // Analyze frequency trend
+        if (frequencyData.length > 5) {
+            const recentFrequency = frequencyData.slice(-5);
+            const frequencyChanges = [];
+            
+            for (let i = 1; i < recentFrequency.length; i++) {
+                frequencyChanges.push(recentFrequency[i] - recentFrequency[i-1]);
+            }
+            
+            const avgFrequencyChange = frequencyChanges.reduce((a, b) => a + b, 0) / frequencyChanges.length;
+            let frequencyStatus, frequencyClass, frequencyPercent;
+            
+            if (Math.abs(avgFrequencyChange) < 0.05) {
+                frequencyStatus = 'Stable';
+                frequencyClass = 'bg-success';
+                frequencyPercent = 90;
+            } else if (Math.abs(avgFrequencyChange) < 0.15) {
+                frequencyStatus = avgFrequencyChange > 0 ? 'Gradually Rising' : 'Gradually Falling';
+                frequencyClass = 'bg-info';
+                frequencyPercent = 70;
+            } else {
+                frequencyStatus = avgFrequencyChange > 0 ? 'Rapidly Rising' : 'Rapidly Falling';
+                frequencyClass = 'bg-warning';
+                frequencyPercent = 40;
+            }
+            
+            frequencyTrend.textContent = frequencyStatus;
+            frequencyTrend.className = `badge ${frequencyClass}`;
+            frequencyTrendBar.style.width = `${frequencyPercent}%`;
+            frequencyTrendBar.className = `progress-bar ${frequencyClass}`;
+        }
+    }, 2000);
+}
+
+// Update system recommendations based on current status
+function updateSystemRecommendations() {
+    const recommendations = document.getElementById('systemRecommendations');
+    const voltageStability = calculateStability(voltageData, 230, 5);
+    const frequencyStability = calculateStability(frequencyData, 50, 0.5);
+    
+    let recommendationText = '';
+    
+    if (voltageStability < 60 || frequencyStability < 60) {
+        // System is unstable
+        if (!document.getElementById('autoStabilize').checked) {
+            recommendationText = `
+                <div class="alert alert-danger">
+                    <strong>Critical Recommendation:</strong> Enable auto-stabilization immediately. 
+                    The system is experiencing dangerous fluctuations that could damage equipment.
+                </div>
+            `;
+        } else {
+            recommendationText = `
+                <div class="alert alert-warning">
+                    <strong>Stabilization in Progress:</strong> The auto-stabilizer is working to correct significant deviations.
+                    Allow system 30-60 seconds to return to normal parameters.
+                </div>
+            `;
+        }
+    } else if (voltageStability < 80 || frequencyStability < 80) {
+        // System needs attention
+        if (voltageStability < frequencyStability) {
+            recommendationText = `
+                <div class="alert alert-info">
+                    <strong>Voltage Fluctuation:</strong> Consider checking voltage regulators. 
+                    The system is maintaining stability but voltage variations are above optimal levels.
+                </div>
+            `;
+        } else {
+            recommendationText = `
+                <div class="alert alert-info">
+                    <strong>Frequency Fluctuation:</strong> Consider checking frequency control systems. 
+                    The system is maintaining stability but frequency variations are above optimal levels.
+                </div>
+            `;
+        }
+    } else {
+        // System is stable
+        recommendationText = `
+            <div class="alert alert-success">
+                <strong>Optimal Operation:</strong> All parameters are within normal ranges. 
+                Continuing standard monitoring procedures.
+            </div>
+        `;
+    }
+    
+    recommendations.innerHTML = recommendationText;
+}
+
 // Auto-stabilization toggle handler
 document.getElementById('autoStabilize').addEventListener('change', function(e) {
     socket.emit('set_auto_stabilize', {
         enabled: e.target.checked
     });
+    
+    if (e.target.checked && isDestabilized) {
+        recoverSystem();
+    }
+    
+    updateSystemRecommendations();
 });
+
+// Initialize ML Analysis on page load
+setTimeout(updateMachineLearningAnalysis, 2000);
+setTimeout(updateSystemRecommendations, 2000);
