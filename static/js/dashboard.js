@@ -1,6 +1,11 @@
 // Initialize Socket.IO connection
 const socket = io();
 
+// Enable immediate stabilize button when system is destabilized
+socket.on('system_destabilized', () => {
+    document.getElementById('immediateStabilizeBtn').disabled = false;
+});
+
 // Chart configuration
 const maxDataPoints = 20;
 const commonOptions = {
@@ -270,6 +275,7 @@ function adjustCustomValue(type, direction) {
 
 // Destabilize the system
 function destabilizeSystem() {
+    const btn = document.getElementById('destabilizeBtn');
     // Check if we're in perfect mode - can't destabilize in perfect mode
     if (document.getElementById('perfectMode').checked) {
         // Show a warning message
