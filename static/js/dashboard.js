@@ -205,6 +205,8 @@ socket.on('update_data', function(data) {
     voltageAction.textContent = data.voltage_action;
     frequencyAction.textContent = data.frequency_action;
 
+    console.log(data)
+
     // Update action badges colors
     updateActionBadge(voltageAction, data.voltage_action);
     updateActionBadge(frequencyAction, data.frequency_action);
