@@ -95,6 +95,10 @@ let voltageOffset = 0;
 let frequencyOffset = 0;
 let voltageData = [];
 let frequencyData = [];
+let isStabilizing = false;
+let isDestabilized = false;
+let stabilizationTimer = null;
+let mlAnalysisTimer = null;
 
 function adjustValue(type, value) {
     if (type === 'voltage') {
