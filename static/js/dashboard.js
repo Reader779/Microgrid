@@ -270,6 +270,16 @@ function adjustCustomValue(type, direction) {
 
 // Destabilize the system
 function destabilizeSystem() {
+    // Check if we're in perfect mode - can't destabilize in perfect mode
+    if (document.getElementById('perfectMode').checked) {
+        // Show a warning message
+        updateStabilizationStatus('Cannot destabilize in Perfect Mode', 'bg-warning');
+        setTimeout(() => {
+            updateStabilizationStatus('Perfect Stability Active', 'bg-success');
+        }, 3000);
+        return;
+    }
+    
     // Check current state for progressive destabilization
     const currentVoltage = voltageData[voltageData.length - 1] || 230;
     const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
@@ -288,6 +298,10 @@ function destabilizeSystem() {
     // Force disable auto-stabilization first
     document.getElementById('autoStabilize').checked = false;
     socket.emit('set_auto_stabilize', { enabled: false });
+    
+    // Make sure we're in standard mode (not perfect)
+    document.getElementById('standardMode').checked = true;
+    socket.emit('set_stabilization_mode', { perfect_mode: false });
     
     // If system already has significant deviations, apply different pattern
     if (voltageDeviation > 5 || frequencyDeviation > 0.3) {
@@ -354,8 +368,27 @@ function immediateStabilize() {
     isDestabilized = false;
     isStabilizing = false;
     
-    // Update UI elements
-    updateStabilizationStatus('Immediate Stabilization Applied', 'bg-success');
+    // Ask if user wants perfect stabilization after immediate stabilization
+    const perfectModePrompt = confirm("Would you like to enable Perfect Stabilization Mode for continuous perfect stability?");
+    
+    if (perfectModePrompt) {
+        // Enable perfect mode
+        document.getElementById('perfectMode').checked = true;
+        socket.emit('set_stabilization_mode', { perfect_mode: true });
+        
+        // Update UI elements
+        updateStabilizationStatus('Perfect Stabilization Enabled', 'bg-success');
+        document.getElementById('destabilizeBtn').disabled = true;
+    } else {
+        // Stay in standard mode
+        document.getElementById('standardMode').checked = true;
+        socket.emit('set_stabilization_mode', { perfect_mode: false });
+        
+        // Update UI elements
+        updateStabilizationStatus('Immediate Stabilization Applied', 'bg-success');
+    }
+    
+    // Disable immediate stabilize button
     document.getElementById('immediateStabilizeBtn').disabled = true;
     
     // Visual feedback on the button
@@ -369,12 +402,17 @@ function immediateStabilize() {
     // Reset button appearance after 2 seconds
     setTimeout(() => {
         btn.classList.remove('active');
-        updateStabilizationStatus('System Stabilized', 'bg-success');
         
-        // Reset to monitoring state after another 2 seconds
-        setTimeout(() => {
-            updateStabilizationStatus('System Monitoring Active', 'bg-secondary');
-        }, 2000);
+        if (document.getElementById('perfectMode').checked) {
+            updateStabilizationStatus('Perfect Stability Active', 'bg-success');
+        } else {
+            updateStabilizationStatus('System Stabilized', 'bg-success');
+            
+            // Reset to monitoring state after another 2 seconds
+            setTimeout(() => {
+                updateStabilizationStatus('System Monitoring Active', 'bg-secondary');
+            }, 2000);
+        }
     }, 2000);
 }
 
@@ -721,6 +759,60 @@ document.getElementById('autoStabilize').addEventListener('change', function(e) 
     }
     
     updateSystemRecommendations();
+});
+
+// Stabilization mode radio buttons handlers
+document.getElementById('standardMode').addEventListener('change', function() {
+    if (this.checked) {
+        socket.emit('set_stabilization_mode', {
+            perfect_mode: false
+        });
+        updateStabilizationStatus('Standard Stabilization Mode', 'bg-secondary');
+        
+        // After a moment, revert to normal status display
+        setTimeout(() => {
+            if (!isDestabilized && !isStabilizing) {
+                updateStabilizationStatus('System Monitoring Active', 'bg-secondary');
+            }
+        }, 3000);
+    }
+});
+
+document.getElementById('perfectMode').addEventListener('change', function() {
+    if (this.checked) {
+        socket.emit('set_stabilization_mode', {
+            perfect_mode: true
+        });
+        updateStabilizationStatus('Perfect Stabilization Mode', 'bg-success');
+        
+        // If auto-stabilize is not enabled, suggest enabling it
+        if (!document.getElementById('autoStabilize').checked) {
+            // Show a notification
+            const recommendations = document.getElementById('systemRecommendations');
+            recommendations.innerHTML = `
+                <div class="alert alert-warning">
+                    <strong>Mode Conflict:</strong> Perfect stabilization requires auto-stabilization.
+                    <p>Please enable auto-stabilization for perfect mode to work.</p>
+                    <button class="btn btn-sm btn-primary" onclick="document.getElementById('autoStabilize').click()">
+                        Enable Auto-stabilization
+                    </button>
+                </div>
+            `;
+        }
+        
+        // Disable the destabilize button in perfect mode
+        document.getElementById('destabilizeBtn').disabled = true;
+        
+        // After a few seconds, revert to normal status display but keep success color
+        setTimeout(() => {
+            if (!isDestabilized && !isStabilizing) {
+                updateStabilizationStatus('Perfect Stability Active', 'bg-success');
+            }
+        }, 3000);
+    } else {
+        // Re-enable the destabilize button when not in perfect mode
+        document.getElementById('destabilizeBtn').disabled = false;
+    }
 });
 
 // Initialize ML Analysis on page load (immediately)
