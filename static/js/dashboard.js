@@ -270,33 +270,55 @@ function adjustCustomValue(type, direction) {
 
 // Destabilize the system
 function destabilizeSystem() {
-    // Always allow destabilization (even if already destabilized)
+    // Check current state for progressive destabilization
+    const currentVoltage = voltageData[voltageData.length - 1] || 230;
+    const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
+    const voltageDeviation = Math.abs(230 - currentVoltage);
+    const frequencyDeviation = Math.abs(50 - currentFrequency);
+    
+    // Set to destabilized state 
     isDestabilized = true;
     const btn = document.getElementById('destabilizeBtn');
     btn.innerHTML = '<i class="bi bi-lightning-fill"></i> System Destabilized';
     btn.classList.add('active');
     
-    // Apply moderate offsets for a noticeable but not extreme destabilization
-    const moderateVoltageOffset = Math.random() > 0.5 ? 12 : -12;
-    const moderateFrequencyOffset = Math.random() > 0.5 ? 0.7 : -0.7;
-    
-    // Force disable auto-stabilization
+    // Force disable auto-stabilization first
     document.getElementById('autoStabilize').checked = false;
     socket.emit('set_auto_stabilize', { enabled: false });
     
-    // Apply the moderate values
-    adjustValue('voltage', moderateVoltageOffset);
-    adjustValue('frequency', moderateFrequencyOffset);
-    
-    updateStabilizationStatus('System Destabilized', 'bg-danger');
+    // If system already has significant deviations, apply different pattern
+    if (voltageDeviation > 5 || frequencyDeviation > 0.3) {
+        // Apply more extreme offsets if already destabilized
+        // Use opposite direction from current deviation to create oscillation
+        const voltageDir = currentVoltage > 230 ? -1 : 1;
+        const frequencyDir = currentFrequency > 50 ? -1 : 1;
+        
+        const extremeVoltageOffset = (8 + Math.random() * 7) * voltageDir; // 8-15V in opposite direction
+        const extremeFrequencyOffset = (0.6 + Math.random() * 0.4) * frequencyDir; // 0.6-1.0Hz in opposite direction
+        
+        // Apply the more extreme values
+        adjustValue('voltage', extremeVoltageOffset);
+        adjustValue('frequency', extremeFrequencyOffset);
+        
+        updateStabilizationStatus('Critical System Fluctuation', 'bg-danger');
+    } else {
+        // Initial moderate destabilization
+        const moderateVoltageOffset = Math.random() > 0.5 ? 12 : -12;
+        const moderateFrequencyOffset = Math.random() > 0.5 ? 0.7 : -0.7;
+        
+        // Apply the moderate values
+        adjustValue('voltage', moderateVoltageOffset);
+        adjustValue('frequency', moderateFrequencyOffset);
+        
+        updateStabilizationStatus('System Destabilized', 'bg-danger');
+    }
     
     // Update ML analysis and recommendations immediately
     updateMachineLearningAnalysis(true);
     updateSystemRecommendations(true);
     
-    // Reset button after 3 seconds but keep system destabilized
+    // Reset button after 3 seconds but keep system destabilized state
     setTimeout(() => {
-        isDestabilized = false;
         btn.innerHTML = '<i class="bi bi-lightning-fill"></i> Destabilize System';
         btn.classList.remove('active');
     }, 3000);
@@ -350,38 +372,30 @@ function updateStabilizationStatus(text, className) {
     stabilizationStatus.innerHTML = `<span class="badge ${className}">${text}</span>`;
 }
 
+// Store the last analysis results to avoid flickering
+let lastVoltageAnalysis = { status: null, class: null, percent: null };
+let lastFrequencyAnalysis = { status: null, class: null, percent: null };
+
 // Update machine learning analysis
 function updateMachineLearningAnalysis(immediate = false) {
     // Clear any existing timer
     if (mlAnalysisTimer) clearTimeout(mlAnalysisTimer);
     
-    // Calculate voltage trend
+    // Get DOM elements
     const voltageTrend = document.getElementById('voltageTrend');
     const voltageTrendBar = document.getElementById('voltageTrendBar');
-    
-    // Calculate frequency trend
     const frequencyTrend = document.getElementById('frequencyTrend');
     const frequencyTrendBar = document.getElementById('frequencyTrendBar');
     
-    // Set to analyzing state
-    voltageTrend.textContent = 'Analyzing...';
-    voltageTrend.className = 'badge bg-secondary';
-    voltageTrendBar.style.width = '50%';
-    voltageTrendBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
-    
-    frequencyTrend.textContent = 'Analyzing...';
-    frequencyTrend.className = 'badge bg-secondary';
-    frequencyTrendBar.style.width = '50%';
-    frequencyTrendBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
-    
     // Function to perform the analysis
     const performAnalysis = () => {
-        // Handle the case when there's insufficient data (always show analysis)
+        // Analyze voltage trend
         if (voltageData.length < 5) {
-            voltageTrend.textContent = 'Insufficient Data';
-            voltageTrend.className = 'badge bg-info';
-            voltageTrendBar.style.width = '50%';
-            voltageTrendBar.className = 'progress-bar bg-info';
+            lastVoltageAnalysis = {
+                status: 'Insufficient Data',
+                class: 'bg-info',
+                percent: 50
+            };
         } else {
             // Analyze voltage trend
             const recentVoltage = voltageData.slice(-5);
@@ -392,41 +406,53 @@ function updateMachineLearningAnalysis(immediate = false) {
             }
             
             const avgVoltageChange = voltageChanges.reduce((a, b) => a + b, 0) / voltageChanges.length;
-            let voltageStatus, voltageClass, voltagePercent;
+            const currentVoltage = voltageData[voltageData.length - 1] || 230;
+            const voltageDeviation = Math.abs(230 - currentVoltage);
             
-            if (Math.abs(avgVoltageChange) < 0.5) {
-                voltageStatus = 'Stable';
-                voltageClass = 'bg-success';
-                voltagePercent = 90;
+            // Check for edge cases - large manual adjustments
+            if (voltageDeviation > 15) {
+                lastVoltageAnalysis = {
+                    status: 'Critical Deviation',
+                    class: 'bg-danger',
+                    percent: 20
+                };
+            } else if (Math.abs(avgVoltageChange) < 0.5) {
+                lastVoltageAnalysis = {
+                    status: 'Stable',
+                    class: 'bg-success',
+                    percent: 90
+                };
             } else if (Math.abs(avgVoltageChange) < 1.5) {
-                voltageStatus = avgVoltageChange > 0 ? 'Gradually Rising' : 'Gradually Falling';
-                voltageClass = 'bg-info';
-                voltagePercent = 70;
+                lastVoltageAnalysis = {
+                    status: avgVoltageChange > 0 ? 'Gradually Rising' : 'Gradually Falling',
+                    class: 'bg-info',
+                    percent: 70
+                };
             } else {
-                voltageStatus = avgVoltageChange > 0 ? 'Rapidly Rising' : 'Rapidly Falling';
-                voltageClass = 'bg-warning';
-                voltagePercent = 40;
+                lastVoltageAnalysis = {
+                    status: avgVoltageChange > 0 ? 'Rapidly Rising' : 'Rapidly Falling',
+                    class: 'bg-warning',
+                    percent: 40
+                };
             }
             
             // If destabilized, show moderate warning
             if (isDestabilized) {
-                voltageStatus = 'Fluctuating';
-                voltageClass = 'bg-warning';
-                voltagePercent = 45;
+                lastVoltageAnalysis = {
+                    status: 'Fluctuating',
+                    class: 'bg-warning',
+                    percent: 45
+                };
             }
-            
-            voltageTrend.textContent = voltageStatus;
-            voltageTrend.className = `badge ${voltageClass}`;
-            voltageTrendBar.style.width = `${voltagePercent}%`;
-            voltageTrendBar.className = `progress-bar ${voltageClass}`;
         }
         
-        // Handle the case when there's insufficient data (always show analysis)
+        // Analyze frequency trend
         if (frequencyData.length < 5) {
-            frequencyTrend.textContent = 'Insufficient Data';
-            frequencyTrend.className = 'badge bg-info';
-            frequencyTrendBar.style.width = '50%';
-            frequencyTrendBar.className = 'progress-bar bg-info';
+            lastFrequencyAnalysis = {
+                status: 'Insufficient Data',
+                class: 'bg-info',
+                percent: 50
+            };
         } else {
             // Analyze frequency trend
             const recentFrequency = frequencyData.slice(-5);
@@ -437,41 +463,89 @@ function updateMachineLearningAnalysis(immediate = false) {
             }
             
             const avgFrequencyChange = frequencyChanges.reduce((a, b) => a + b, 0) / frequencyChanges.length;
-            let frequencyStatus, frequencyClass, frequencyPercent;
+            const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
+            const frequencyDeviation = Math.abs(50 - currentFrequency);
             
-            if (Math.abs(avgFrequencyChange) < 0.05) {
-                frequencyStatus = 'Stable';
-                frequencyClass = 'bg-success';
-                frequencyPercent = 90;
+            // Check for edge cases - large manual adjustments
+            if (frequencyDeviation > 2) {
+                lastFrequencyAnalysis = {
+                    status: 'Critical Deviation',
+                    class: 'bg-danger',
+                    percent: 20
+                };
+            } else if (Math.abs(avgFrequencyChange) < 0.05) {
+                lastFrequencyAnalysis = {
+                    status: 'Stable',
+                    class: 'bg-success',
+                    percent: 90
+                };
             } else if (Math.abs(avgFrequencyChange) < 0.15) {
-                frequencyStatus = avgFrequencyChange > 0 ? 'Gradually Rising' : 'Gradually Falling';
-                frequencyClass = 'bg-info';
-                frequencyPercent = 70;
+                lastFrequencyAnalysis = {
+                    status: avgFrequencyChange > 0 ? 'Gradually Rising' : 'Gradually Falling',
+                    class: 'bg-info',
+                    percent: 70
+                };
             } else {
-                frequencyStatus = avgFrequencyChange > 0 ? 'Rapidly Rising' : 'Rapidly Falling';
-                frequencyClass = 'bg-warning';
-                frequencyPercent = 40;
+                lastFrequencyAnalysis = {
+                    status: avgFrequencyChange > 0 ? 'Rapidly Rising' : 'Rapidly Falling',
+                    class: 'bg-warning',
+                    percent: 40
+                };
             }
             
             // If destabilized, show moderate warning
             if (isDestabilized) {
-                frequencyStatus = 'Fluctuating';
-                frequencyClass = 'bg-warning';
-                frequencyPercent = 45;
+                lastFrequencyAnalysis = {
+                    status: 'Fluctuating',
+                    class: 'bg-warning',
+                    percent: 45
+                };
             }
-            
-            frequencyTrend.textContent = frequencyStatus;
-            frequencyTrend.className = `badge ${frequencyClass}`;
-            frequencyTrendBar.style.width = `${frequencyPercent}%`;
-            frequencyTrendBar.className = `progress-bar ${frequencyClass}`;
         }
+        
+        // Update the UI with the analysis results
+        updateAnalysisDisplay();
     };
+    
+    // Function to update display with last analysis results
+    function updateAnalysisDisplay() {
+        // Only update if we have analysis results
+        if (lastVoltageAnalysis.status) {
+            voltageTrend.textContent = lastVoltageAnalysis.status;
+            voltageTrend.className = `badge ${lastVoltageAnalysis.class}`;
+            voltageTrendBar.style.width = `${lastVoltageAnalysis.percent}%`;
+            voltageTrendBar.className = `progress-bar ${lastVoltageAnalysis.class}`;
+        }
+        
+        if (lastFrequencyAnalysis.status) {
+            frequencyTrend.textContent = lastFrequencyAnalysis.status;
+            frequencyTrend.className = `badge ${lastFrequencyAnalysis.class}`;
+            frequencyTrendBar.style.width = `${lastFrequencyAnalysis.percent}%`;
+            frequencyTrendBar.className = `progress-bar ${lastFrequencyAnalysis.class}`;
+        }
+    }
+    
+    // If we have previous analysis, show it first to avoid flicker
+    if (lastVoltageAnalysis.status && lastFrequencyAnalysis.status) {
+        updateAnalysisDisplay();
+    } else {
+        // For initial analysis, show analyzing state
+        voltageTrend.textContent = 'Analyzing...';
+        voltageTrend.className = 'badge bg-secondary';
+        voltageTrendBar.style.width = '50%';
+        voltageTrendBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+        
+        frequencyTrend.textContent = 'Analyzing...';
+        frequencyTrend.className = 'badge bg-secondary';
+        frequencyTrendBar.style.width = '50%';
+        frequencyTrendBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+    }
     
     // Either perform analysis immediately or after a short delay
     if (immediate) {
         performAnalysis();
     } else {
-        mlAnalysisTimer = setTimeout(performAnalysis, 500); // Reduced from 2000ms to 500ms
+        mlAnalysisTimer = setTimeout(performAnalysis, 500);
     }
 }
 
