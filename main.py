@@ -27,6 +27,9 @@ frequency_sequence = []
 voltage_offset = 0
 frequency_offset = 0
 auto_stabilize = True
+NOMINAL_VOLTAGE = 230.0
+NOMINAL_FREQUENCY = 50.0
+stabilize_enabled = True  # New flag to control continuous stabilization
 
 @app.route('/')
 def index():
@@ -41,6 +44,24 @@ def background_task():
         base_voltage, base_frequency = data_simulator.generate_data_point()
         voltage = base_voltage + voltage_offset
         frequency = base_frequency + frequency_offset
+
+        # Calculate how far we are from nominal values (used in both auto-stabilize and for display)
+        voltage_deviation = NOMINAL_VOLTAGE - voltage
+        frequency_deviation = NOMINAL_FREQUENCY - frequency
+
+        # Apply automatic stabilization if enabled
+        if auto_stabilize and stabilize_enabled:
+            # Apply gradual corrections (5% per cycle)
+            voltage_correction = voltage_deviation * 0.05
+            frequency_correction = frequency_deviation * 0.05
+            
+            # Update offsets to stabilize the system
+            voltage_offset += voltage_correction
+            frequency_offset += frequency_correction
+            
+            # Log significant corrections
+            if abs(voltage_correction) > 0.5 or abs(frequency_correction) > 0.05:
+                logging.debug(f"Auto-stabilizing: V:{voltage_correction:.2f}, F:{frequency_correction:.2f}")
 
         # Update sequences
         voltage_sequence.append(voltage)
@@ -62,9 +83,23 @@ def background_task():
             if auto_stabilize:
                 v_action = control_logic.get_voltage_action(next_voltage)
                 f_action = control_logic.get_frequency_action(next_frequency)
+                
+                # Add more specific actions when auto-stabilizing
+                if abs(voltage_deviation) > 1.0:
+                    if voltage_deviation > 0:
+                        v_action = f"Increase Volt ({voltage_deviation:.1f}V)"
+                    else:
+                        v_action = f"Decrease Volt ({-voltage_deviation:.1f}V)"
+                    
+                if abs(frequency_deviation) > 0.1:
+                    if frequency_deviation > 0:
+                        f_action = f"Increase Freq ({frequency_deviation:.2f}Hz)"
+                    else:
+                        f_action = f"Decrease Freq ({-frequency_deviation:.2f}Hz)"
             else:
-                v_action = "Manual Control"
-                f_action = "Manual Control"
+                # More helpful manual control recommendations
+                v_action = f"Manual Control (Needs {voltage_deviation:.1f}V)"
+                f_action = f"Manual Control (Needs {frequency_deviation:.2f}Hz)"
 
             # Emit data to clients
             socketio.emit('update_data', {
@@ -85,7 +120,7 @@ def handle_connect():
 
 @socketio.on('manual_adjustment')
 def handle_manual_adjustment(data):
-    global voltage_offset, frequency_offset, auto_stabilize
+    global voltage_offset, frequency_offset, auto_stabilize, stabilize_enabled
 
     if data['type'] == 'voltage':
         voltage_offset = data['value']
@@ -93,12 +128,50 @@ def handle_manual_adjustment(data):
         frequency_offset = data['value']
 
     auto_stabilize = data['auto_stabilize']
-    logging.debug(f'Manual adjustment: {data}')
+    
+    # Pause stabilization for 3 seconds when manual adjustment is made
+    # to allow the user to see the effect of their change
+    stabilize_enabled = False
+    logging.debug(f'Manual adjustment: {data}, temporarily pausing stabilization')
+    
+    # Re-enable stabilization after 3 seconds if auto-stabilize is on
+    if auto_stabilize:
+        def resume_stabilization():
+            global stabilize_enabled
+            time.sleep(3)  # Wait for 3 seconds
+            stabilize_enabled = True
+            logging.debug('Stabilization resumed')
+        
+        socketio.start_background_task(target=resume_stabilization)
 
 @socketio.on('set_auto_stabilize')
 def handle_auto_stabilize(data):
-    global auto_stabilize
+    global auto_stabilize, stabilize_enabled
     auto_stabilize = data['enabled']
+    stabilize_enabled = True  # Always enable stabilization when toggling
+    
+    # Clear any manual offsets when auto-stabilize is enabled
+    if auto_stabilize:
+        def smooth_reset():
+            global voltage_offset, frequency_offset
+            steps = 10
+            v_step = voltage_offset / steps
+            f_step = frequency_offset / steps
+            
+            for _ in range(steps):
+                if not auto_stabilize:  # Stop if auto-stabilize was turned off
+                    break
+                voltage_offset -= v_step
+                frequency_offset -= f_step
+                time.sleep(0.3)
+            
+            # Final reset to ensure precision
+            if auto_stabilize:
+                voltage_offset = 0
+                frequency_offset = 0
+                
+        socketio.start_background_task(smooth_reset)
+    
     logging.debug(f'Auto-stabilize set to: {auto_stabilize}')
 
 if __name__ == '__main__':
