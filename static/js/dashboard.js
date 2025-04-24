@@ -273,47 +273,51 @@ function destabilizeSystem() {
     // Always allow destabilization (even if already destabilized)
     isDestabilized = true;
     const btn = document.getElementById('destabilizeBtn');
-    btn.innerHTML = '<i class="bi bi-lightning-fill"></i> SYSTEM DESTABILIZED';
+    btn.innerHTML = '<i class="bi bi-lightning-fill"></i> System Destabilized';
     btn.classList.add('active');
     
-    // Apply extreme offsets to immediately destabilize
-    const extremeVoltageOffset = Math.random() > 0.5 ? 30 : -30;
-    const extremeFrequencyOffset = Math.random() > 0.5 ? 1.5 : -1.5;
+    // Apply moderate offsets for a noticeable but not extreme destabilization
+    const moderateVoltageOffset = Math.random() > 0.5 ? 12 : -12;
+    const moderateFrequencyOffset = Math.random() > 0.5 ? 0.7 : -0.7;
     
     // Force disable auto-stabilization
     document.getElementById('autoStabilize').checked = false;
     socket.emit('set_auto_stabilize', { enabled: false });
     
-    // Apply the extreme values
-    adjustValue('voltage', extremeVoltageOffset);
-    adjustValue('frequency', extremeFrequencyOffset);
+    // Apply the moderate values
+    adjustValue('voltage', moderateVoltageOffset);
+    adjustValue('frequency', moderateFrequencyOffset);
     
-    updateStabilizationStatus('CRITICAL DESTABILIZATION', 'bg-danger');
+    updateStabilizationStatus('System Destabilized', 'bg-danger');
     
     // Update ML analysis and recommendations immediately
-    updateMachineLearningAnalysis(true); // Force immediate analysis
-    updateSystemRecommendations(true);    // Force immediate recommendations
+    updateMachineLearningAnalysis(true);
+    updateSystemRecommendations(true);
     
-    // Reset button after 5 seconds but keep system destabilized
+    // Reset button after 3 seconds but keep system destabilized
     setTimeout(() => {
         isDestabilized = false;
         btn.innerHTML = '<i class="bi bi-lightning-fill"></i> Destabilize System';
         btn.classList.remove('active');
-    }, 5000);
+    }, 3000);
 }
 
 // Recover the system from destabilization
 function recoverSystem() {
+    // Reset voltage and frequency to nominal values
     adjustValue('voltage', 0);
     adjustValue('frequency', 0);
     
+    // Ensure auto-stabilization is enabled
     document.getElementById('autoStabilize').checked = true;
     socket.emit('set_auto_stabilize', { enabled: true });
     
+    // Update status indicators
     isStabilizing = true;
+    isDestabilized = false;  // Ensure we're no longer in destabilized state
     updateStabilizationStatus('Stabilization in Progress', 'bg-warning');
     
-    // Simulate stabilization process
+    // Simulate professional stabilization process
     if (stabilizationTimer) clearTimeout(stabilizationTimer);
     stabilizationTimer = setTimeout(() => {
         isStabilizing = false;
@@ -325,9 +329,11 @@ function recoverSystem() {
         }, 3000);
     }, 5000);
     
-    // Update ML analysis
-    updateMachineLearningAnalysis();
-    updateSystemRecommendations();
+    // Update ML analysis and recommendations with a professional delay
+    setTimeout(() => {
+        updateMachineLearningAnalysis(true);
+        updateSystemRecommendations(true);
+    }, 1500);
 }
 
 // Update stabilization status indicator
@@ -394,11 +400,11 @@ function updateMachineLearningAnalysis(immediate = false) {
                 voltagePercent = 40;
             }
             
-            // If destabilized, always show warning or danger
+            // If destabilized, show moderate warning
             if (isDestabilized) {
-                voltageStatus = 'EXTREME FLUCTUATION';
-                voltageClass = 'bg-danger';
-                voltagePercent = 20;
+                voltageStatus = 'Fluctuating';
+                voltageClass = 'bg-warning';
+                voltagePercent = 45;
             }
             
             voltageTrend.textContent = voltageStatus;
@@ -439,11 +445,11 @@ function updateMachineLearningAnalysis(immediate = false) {
                 frequencyPercent = 40;
             }
             
-            // If destabilized, always show warning or danger
+            // If destabilized, show moderate warning
             if (isDestabilized) {
-                frequencyStatus = 'EXTREME FLUCTUATION';
-                frequencyClass = 'bg-danger';
-                frequencyPercent = 20;
+                frequencyStatus = 'Fluctuating';
+                frequencyClass = 'bg-warning';
+                frequencyPercent = 45;
             }
             
             frequencyTrend.textContent = frequencyStatus;
@@ -469,18 +475,18 @@ function updateSystemRecommendations(immediate = false) {
     
     let recommendationText = '';
     
-    // Force critical alert if the system was just destabilized
+    // Show professional alert if the system was destabilized
     if (isDestabilized) {
         recommendationText = `
-            <div class="alert alert-danger">
-                <strong>CRITICAL SYSTEM ALERT:</strong> Extreme voltage and frequency fluctuations detected! 
+            <div class="alert alert-warning">
+                <strong>System Alert:</strong> Significant voltage and frequency fluctuations detected 
                 <ul>
-                    <li>Immediate action required to prevent potential equipment damage</li>
-                    <li>Enable auto-stabilization immediately</li>
-                    <li>Check for external system interference</li>
-                    <li>Prepare backup power systems if available</li>
+                    <li>Action recommended to maintain system integrity</li>
+                    <li>Enable auto-stabilization for optimal recovery</li>
+                    <li>Monitor system parameters during stabilization</li>
+                    <li>Check for potential external interference sources</li>
                 </ul>
-                <strong>AI Recommendation:</strong> Reset system parameters and enable auto-stabilization.
+                <strong>AI Recommendation:</strong> Enable auto-stabilization to return to normal parameters.
             </div>
         `;
     }
@@ -559,8 +565,8 @@ document.getElementById('autoStabilize').addEventListener('change', function(e) 
 updateMachineLearningAnalysis(true); // Force immediate analysis
 updateSystemRecommendations(true);   // Force immediate recommendations
 
-// Set up periodic updates to ensure analysis is always fresh
+// Set up periodic updates at a moderate, professional pace
 setInterval(() => {
     updateMachineLearningAnalysis(true);
     updateSystemRecommendations(true);
-}, 5000); // Update every 5 seconds
+}, 8000); // Update every 8 seconds for a more professional pace
