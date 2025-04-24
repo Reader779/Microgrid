@@ -304,9 +304,17 @@ function destabilizeSystem() {
 
 // Recover the system from destabilization
 function recoverSystem() {
-    // Reset voltage and frequency to nominal values
-    adjustValue('voltage', 0);
-    adjustValue('frequency', 0);
+    // Calculate correction values (opposite of current offsets)
+    const currentVoltage = voltageData[voltageData.length - 1] || 230;
+    const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
+    
+    // Calculate how far we are from nominal values
+    const voltageCorrection = 230 - currentVoltage;
+    const frequencyCorrection = 50 - currentFrequency;
+    
+    // Apply necessary corrections to bring system back to nominal values
+    adjustValue('voltage', voltageCorrection);
+    adjustValue('frequency', frequencyCorrection);
     
     // Ensure auto-stabilization is enabled
     document.getElementById('autoStabilize').checked = true;
@@ -315,9 +323,11 @@ function recoverSystem() {
     // Update status indicators
     isStabilizing = true;
     isDestabilized = false;  // Ensure we're no longer in destabilized state
-    updateStabilizationStatus('Stabilization in Progress', 'bg-warning');
     
-    // Simulate professional stabilization process
+    // Show specific correction values in the status
+    updateStabilizationStatus(`Applying Correction: V:${voltageCorrection.toFixed(1)}V, F:${frequencyCorrection.toFixed(2)}Hz`, 'bg-warning');
+    
+    // Short stabilization process since we've already applied corrections
     if (stabilizationTimer) clearTimeout(stabilizationTimer);
     stabilizationTimer = setTimeout(() => {
         isStabilizing = false;
@@ -327,13 +337,11 @@ function recoverSystem() {
         setTimeout(() => {
             updateStabilizationStatus('System Monitoring Active', 'bg-secondary');
         }, 3000);
-    }, 5000);
+    }, 3000);
     
-    // Update ML analysis and recommendations with a professional delay
-    setTimeout(() => {
-        updateMachineLearningAnalysis(true);
-        updateSystemRecommendations(true);
-    }, 1500);
+    // Update ML analysis and recommendations immediately
+    updateMachineLearningAnalysis(true);
+    updateSystemRecommendations(true);
 }
 
 // Update stabilization status indicator
@@ -475,6 +483,14 @@ function updateSystemRecommendations(immediate = false) {
     
     let recommendationText = '';
     
+    // Calculate required manual adjustments
+    const currentVoltage = voltageData[voltageData.length - 1] || 230;
+    const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
+    const voltageCorrection = (230 - currentVoltage).toFixed(1);
+    const frequencyCorrection = (50 - currentFrequency).toFixed(2);
+    const voltageDirection = voltageCorrection > 0 ? "increase" : "decrease";
+    const frequencyDirection = frequencyCorrection > 0 ? "increase" : "decrease";
+    
     // Show professional alert if the system was destabilized
     if (isDestabilized) {
         recommendationText = `
@@ -485,6 +501,11 @@ function updateSystemRecommendations(immediate = false) {
                     <li>Enable auto-stabilization for optimal recovery</li>
                     <li>Monitor system parameters during stabilization</li>
                     <li>Check for potential external interference sources</li>
+                </ul>
+                <strong>Manual Stabilization Values:</strong>
+                <ul>
+                    <li>${voltageDirection} voltage by ${Math.abs(voltageCorrection)}V</li>
+                    <li>${frequencyDirection} frequency by ${Math.abs(frequencyCorrection)}Hz</li>
                 </ul>
                 <strong>AI Recommendation:</strong> Enable auto-stabilization to return to normal parameters.
             </div>
@@ -498,6 +519,11 @@ function updateSystemRecommendations(immediate = false) {
                 <div class="alert alert-danger">
                     <strong>Critical Recommendation:</strong> Enable auto-stabilization immediately. 
                     <p>The system is experiencing dangerous fluctuations that could damage equipment.</p>
+                    <strong>Manual Stabilization Actions Needed:</strong>
+                    <ul>
+                        <li>${voltageDirection} voltage by ${Math.abs(voltageCorrection)}V</li>
+                        <li>${frequencyDirection} frequency by ${Math.abs(frequencyCorrection)}Hz</li>
+                    </ul>
                     <strong>AI Analysis:</strong> System instability detected in ${voltageStability < frequencyStability ? 'voltage' : 'frequency'} parameters. 
                     Risk of equipment failure increases by 5% every minute stabilization is disabled.
                 </div>
@@ -507,6 +533,11 @@ function updateSystemRecommendations(immediate = false) {
                 <div class="alert alert-warning">
                     <strong>Stabilization in Progress:</strong> The auto-stabilizer is working to correct significant deviations.
                     <p>Allow system 30-60 seconds to return to normal parameters.</p>
+                    <strong>Auto-Stabilizer Adjustments:</strong>
+                    <ul>
+                        <li>Applying ${voltageDirection} voltage: ${Math.abs(voltageCorrection)}V</li>
+                        <li>Applying ${frequencyDirection} frequency: ${Math.abs(frequencyCorrection)}Hz</li>
+                    </ul>
                     <strong>AI Analysis:</strong> Correction algorithms active. 
                     Estimated recovery time: ${Math.round(120 - voltageStability - frequencyStability)} seconds.
                 </div>
