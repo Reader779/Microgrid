@@ -282,6 +282,9 @@ function destabilizeSystem() {
     btn.innerHTML = '<i class="bi bi-lightning-fill"></i> System Destabilized';
     btn.classList.add('active');
     
+    // Enable the immediate stabilize button
+    document.getElementById('immediateStabilizeBtn').disabled = false;
+    
     // Force disable auto-stabilization first
     document.getElementById('autoStabilize').checked = false;
     socket.emit('set_auto_stabilize', { enabled: false });
@@ -324,6 +327,57 @@ function destabilizeSystem() {
     }, 3000);
 }
 
+// Immediate stabilization function - instantly corrects system to nominal values
+function immediateStabilize() {
+    // Only works if system is destabilized
+    if (!isDestabilized) {
+        return;
+    }
+    
+    // Get the current values
+    const currentVoltage = voltageData[voltageData.length - 1] || 230;
+    const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
+    
+    // Calculate exact corrections needed to return to nominal values
+    const voltageCorrection = 230 - currentVoltage;
+    const frequencyCorrection = 50 - currentFrequency;
+    
+    // Apply immediate corrections
+    adjustValue('voltage', voltageCorrection);
+    adjustValue('frequency', frequencyCorrection);
+    
+    // Set the auto-stabilization to enabled
+    document.getElementById('autoStabilize').checked = true;
+    socket.emit('set_auto_stabilize', { enabled: true });
+    
+    // Update status indicators
+    isDestabilized = false;
+    isStabilizing = false;
+    
+    // Update UI elements
+    updateStabilizationStatus('Immediate Stabilization Applied', 'bg-success');
+    document.getElementById('immediateStabilizeBtn').disabled = true;
+    
+    // Visual feedback on the button
+    const btn = document.getElementById('immediateStabilizeBtn');
+    btn.classList.add('active');
+    
+    // Update ML analysis and recommendations immediately
+    updateMachineLearningAnalysis(true);
+    updateSystemRecommendations(true);
+    
+    // Reset button appearance after 2 seconds
+    setTimeout(() => {
+        btn.classList.remove('active');
+        updateStabilizationStatus('System Stabilized', 'bg-success');
+        
+        // Reset to monitoring state after another 2 seconds
+        setTimeout(() => {
+            updateStabilizationStatus('System Monitoring Active', 'bg-secondary');
+        }, 2000);
+    }, 2000);
+}
+
 // Recover the system from destabilization
 function recoverSystem() {
     // Calculate correction values (opposite of current offsets)
@@ -345,6 +399,9 @@ function recoverSystem() {
     // Update status indicators
     isStabilizing = true;
     isDestabilized = false;  // Ensure we're no longer in destabilized state
+    
+    // Disable the immediate stabilize button since we're recovering
+    document.getElementById('immediateStabilizeBtn').disabled = true;
     
     // Show specific correction values in the status
     updateStabilizationStatus(`Applying Correction: V:${voltageCorrection.toFixed(1)}V, F:${frequencyCorrection.toFixed(2)}Hz`, 'bg-warning');

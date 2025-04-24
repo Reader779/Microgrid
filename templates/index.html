@@ -89,11 +89,22 @@
                             </button>
                         </div>
                         
-                        <!-- Destabilize Button -->
-                        <div class="d-grid">
-                            <button class="btn btn-danger" id="destabilizeBtn" onclick="destabilizeSystem()">
-                                <i class="bi bi-lightning-fill"></i> Destabilize System
-                            </button>
+                        <!-- Destabilize and Immediate Stabilize Buttons -->
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <div class="d-grid">
+                                    <button class="btn btn-danger" id="destabilizeBtn" onclick="destabilizeSystem()">
+                                        <i class="bi bi-lightning-fill"></i> Destabilize System
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="d-grid">
+                                    <button class="btn btn-success" id="immediateStabilizeBtn" onclick="immediateStabilize()" disabled>
+                                        <i class="bi bi-shield-check"></i> Immediate Stabilize
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- Stabilization Indicator -->
