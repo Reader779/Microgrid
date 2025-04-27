@@ -277,9 +277,17 @@ function adjustCustomValue(type, direction) {
 function destabilizeSystem() {
     const btn = document.getElementById('destabilizeBtn');
     
+    // Force disable auto-stabilization first
+    document.getElementById('autoStabilize').checked = false;
+    socket.emit('set_auto_stabilize', { enabled: false });
+    
+    // Make sure we're in standard mode (not perfect)
+    document.getElementById('standardMode').checked = true;
+    socket.emit('set_stabilization_mode', { perfect_mode: false });
+    
     // Notify server about destabilization
     socket.emit('set_stabilization_mode', {
-        perfect_mode: document.getElementById('perfectMode').checked,
+        perfect_mode: false,
         destabilize: true
     });
     
@@ -297,13 +305,9 @@ function destabilizeSystem() {
     // Enable the immediate stabilize button
     document.getElementById('immediateStabilizeBtn').disabled = false;
     
-    // Force disable auto-stabilization first
-    document.getElementById('autoStabilize').checked = false;
-    socket.emit('set_auto_stabilize', { enabled: false });
-    
-    // Make sure we're in standard mode (not perfect)
-    document.getElementById('standardMode').checked = true;
-    socket.emit('set_stabilization_mode', { perfect_mode: false });
+    // Apply significant destabilizing offsets
+    adjustValue('voltage', 12);
+    adjustValue('frequency', 0.7);
     
     // If system already has significant deviations, apply different pattern
     if (voltageDeviation > 5 || frequencyDeviation > 0.3) {
