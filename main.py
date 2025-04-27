@@ -66,12 +66,12 @@ def background_task():
                 voltage_offset *= (1 - perfect_factor)
                 frequency_offset *= (1 - perfect_factor)
             else:
-            # Normal mode with fluctuations
-            voltage = base_voltage + voltage_offset
-            frequency = base_frequency + frequency_offset
-            # Calculate how far we are from nominal values
-            voltage_deviation = NOMINAL_VOLTAGE - voltage
-            frequency_deviation = NOMINAL_FREQUENCY - frequency
+                # Normal mode with fluctuations
+                voltage = base_voltage + voltage_offset
+                frequency = base_frequency + frequency_offset
+                # Calculate how far we are from nominal values
+                voltage_deviation = NOMINAL_VOLTAGE - voltage
+                frequency_deviation = NOMINAL_FREQUENCY - frequency
             
             # Apply automatic stabilization if enabled (standard mode)
             if auto_stabilize and stabilize_enabled:
