@@ -31,6 +31,12 @@ NOMINAL_VOLTAGE = 230.0
 NOMINAL_FREQUENCY = 50.0
 stabilize_enabled = True  # Flag to control continuous stabilization
 perfect_stabilization = False  # Flag to toggle between standard vs perfect stabilization
+stabilization_quality = 0.0  # Track stabilization improvement (0 to 1)
+last_destabilize_time = 0  # Track when system was last destabilized
+PERFECT_MODE_THRESHOLD = 0.9  # Threshold for perfect mode transition
+STABILITY_GAIN_RATE = 0.02  # How fast system learns stability
+STABILITY_LOSS_RATE = 0.2  # How much stability is lost on destabilization
+PERFECT_MODE_THRESHOLD = 0.8  # Lower threshold for perfect mode transition
 
 @app.route('/')
 def index():
@@ -38,39 +44,45 @@ def index():
 
 def background_task():
     """Background task to generate and process data"""
-    global voltage_offset, frequency_offset
+    global voltage_offset, frequency_offset, stabilization_quality, last_destabilize_time
 
     while True:
+        # Update stabilization quality if system is stable
+        if auto_stabilize and stabilize_enabled and time.time() - last_destabilize_time > 10:
+            stabilization_quality = min(1.0, stabilization_quality + STABILITY_GAIN_RATE)
         # Generate new data point with manual adjustments
         base_voltage, base_frequency = data_simulator.generate_data_point()
         
-        # Perfect stabilization mode forces exact nominal values
-        if perfect_stabilization and auto_stabilize and stabilize_enabled:
-            # In perfect mode, we directly use the nominal values, ignoring the base values
-            voltage = NOMINAL_VOLTAGE
-            frequency = NOMINAL_FREQUENCY
-            voltage_deviation = 0
-            frequency_deviation = 0
-            # Reset offsets since we're forcing perfect values
-            voltage_offset = 0
-            frequency_offset = 0
-        else:
-            # Normal mode with fluctuations
-            voltage = base_voltage + voltage_offset
-            frequency = base_frequency + frequency_offset
-            # Calculate how far we are from nominal values
-            voltage_deviation = NOMINAL_VOLTAGE - voltage
-            frequency_deviation = NOMINAL_FREQUENCY - frequency
+        # Adaptive stabilization based on system learning
+        if auto_stabilize and stabilize_enabled:
+            # Calculate how much perfect vs standard mode to apply
+            perfect_factor = stabilization_quality if not perfect_stabilization else 1.0
+            
+            # Mix between perfect and standard modes
+            if perfect_factor > PERFECT_MODE_THRESHOLD:
+                # Closer to perfect mode
+                voltage = NOMINAL_VOLTAGE * perfect_factor + base_voltage * (1 - perfect_factor)
+                frequency = NOMINAL_FREQUENCY * perfect_factor + base_frequency * (1 - perfect_factor)
+                # Gradually reduce offsets
+                voltage_offset *= (1 - perfect_factor)
+                frequency_offset *= (1 - perfect_factor)
+            else:
+                # Normal mode with fluctuations
+                voltage = base_voltage + voltage_offset
+                frequency = base_frequency + frequency_offset
+                # Calculate how far we are from nominal values
+                voltage_deviation = NOMINAL_VOLTAGE - voltage
+                frequency_deviation = NOMINAL_FREQUENCY - frequency
             
             # Apply automatic stabilization if enabled (standard mode)
             if auto_stabilize and stabilize_enabled:
-                # Apply gradual corrections (5% per cycle)
-                voltage_correction = voltage_deviation * 0.05
-                frequency_correction = frequency_deviation * 0.05
+                # Apply faster corrections (40% per cycle)
+                voltage_correction = voltage_deviation * 0.4
+                frequency_correction = frequency_deviation * 0.4
                 
-                # Update offsets to stabilize the system
-                voltage_offset += voltage_correction
-                frequency_offset += frequency_correction
+                # Update offsets to stabilize the system with stronger adjustments
+                voltage_offset += voltage_correction * 2.0
+                frequency_offset += frequency_correction * 2.0
                 
                 # Log significant corrections
                 if abs(voltage_correction) > 0.5 or abs(frequency_correction) > 0.05:
@@ -133,7 +145,7 @@ def handle_connect():
 
 @socketio.on('manual_adjustment')
 def handle_manual_adjustment(data):
-    global voltage_offset, frequency_offset, auto_stabilize, stabilize_enabled
+    global voltage_offset, frequency_offset, auto_stabilize, stabilize_enabled, stabilization_quality, last_destabilize_time
 
     if data['type'] == 'voltage':
         voltage_offset = data['value']
@@ -189,9 +201,16 @@ def handle_auto_stabilize(data):
 
 @socketio.on('set_stabilization_mode')
 def handle_stabilization_mode(data):
-    global perfect_stabilization
+    global perfect_stabilization, stabilization_quality, last_destabilize_time
     perfect_stabilization = data['perfect_mode']
-    logging.debug(f'Perfect stabilization mode set to: {perfect_stabilization}')
+    
+    if data.get('destabilize', False):
+        # Reset learning progress on destabilization
+        stabilization_quality *= (1 - STABILITY_LOSS_RATE)
+        last_destabilize_time = time.time()
+        logging.debug(f'System destabilized, stability reduced to {stabilization_quality}')
+    
+    logging.debug(f'Perfect stabilization mode set to: {perfect_stabilization}, quality: {stabilization_quality}')
 
 if __name__ == '__main__':
     socketio.start_background_task(background_task)

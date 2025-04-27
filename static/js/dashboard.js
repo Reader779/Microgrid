@@ -276,15 +276,12 @@ function adjustCustomValue(type, direction) {
 // Destabilize the system
 function destabilizeSystem() {
     const btn = document.getElementById('destabilizeBtn');
-    // Check if we're in perfect mode - can't destabilize in perfect mode
-    if (document.getElementById('perfectMode').checked) {
-        // Show a warning message
-        updateStabilizationStatus('Cannot destabilize in Perfect Mode', 'bg-warning');
-        setTimeout(() => {
-            updateStabilizationStatus('Perfect Stability Active', 'bg-success');
-        }, 3000);
-        return;
-    }
+    
+    // Notify server about destabilization
+    socket.emit('set_stabilization_mode', {
+        perfect_mode: document.getElementById('perfectMode').checked,
+        destabilize: true
+    });
     
     // Check current state for progressive destabilization
     const currentVoltage = voltageData[voltageData.length - 1] || 230;
