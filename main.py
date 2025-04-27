@@ -34,8 +34,9 @@ perfect_stabilization = False  # Flag to toggle between standard vs perfect stab
 stabilization_quality = 0.0  # Track stabilization improvement (0 to 1)
 last_destabilize_time = 0  # Track when system was last destabilized
 PERFECT_MODE_THRESHOLD = 0.9  # Threshold for perfect mode transition
-STABILITY_GAIN_RATE = 0.005  # How fast system learns stability
-STABILITY_LOSS_RATE = 0.3  # How much stability is lost on destabilization
+STABILITY_GAIN_RATE = 0.02  # How fast system learns stability
+STABILITY_LOSS_RATE = 0.2  # How much stability is lost on destabilization
+PERFECT_MODE_THRESHOLD = 0.8  # Lower threshold for perfect mode transition
 
 @app.route('/')
 def index():
@@ -75,13 +76,13 @@ def background_task():
             
             # Apply automatic stabilization if enabled (standard mode)
             if auto_stabilize and stabilize_enabled:
-                # Apply faster corrections (25% per cycle)
-                voltage_correction = voltage_deviation * 0.25
-                frequency_correction = frequency_deviation * 0.25
+                # Apply faster corrections (40% per cycle)
+                voltage_correction = voltage_deviation * 0.4
+                frequency_correction = frequency_deviation * 0.4
                 
                 # Update offsets to stabilize the system with stronger adjustments
-                voltage_offset += voltage_correction * 1.5
-                frequency_offset += frequency_correction * 1.5
+                voltage_offset += voltage_correction * 2.0
+                frequency_offset += frequency_correction * 2.0
                 
                 # Log significant corrections
                 if abs(voltage_correction) > 0.5 or abs(frequency_correction) > 0.05:
