@@ -36,17 +36,38 @@ class GridDataset:
         self.hour = datetime.now().hour
         
     def _get_current_scenario(self):
-        # Add time-based bias
-        if 9 <= self.hour <= 17:  # Peak hours
-            self.scenarios['peak_load']['probability'] = 0.25
-            self.scenarios['normal']['probability'] = 0.6
-        elif 0 <= self.hour <= 5:  # Night hours
-            self.scenarios['low_load']['probability'] = 0.2
-            self.scenarios['normal']['probability'] = 0.7
-            
-        # Select scenario based on probability
         scenarios = list(self.scenarios.keys())
-        probabilities = [self.scenarios[s]['probability'] for s in scenarios]
+        probabilities = []
+        
+        # Calculate probabilities based on time of day
+        if 9 <= self.hour <= 17:  # Peak hours
+            for scenario in scenarios:
+                if scenario == 'peak_load':
+                    probabilities.append(0.25)
+                elif scenario == 'normal':
+                    probabilities.append(0.55)
+                elif scenario == 'low_load':
+                    probabilities.append(0.15)
+                else:
+                    probabilities.append(0.05)
+        elif 0 <= self.hour <= 5:  # Night hours
+            for scenario in scenarios:
+                if scenario == 'low_load':
+                    probabilities.append(0.2)
+                elif scenario == 'normal':
+                    probabilities.append(0.65)
+                elif scenario == 'peak_load':
+                    probabilities.append(0.1)
+                else:
+                    probabilities.append(0.05)
+        else:  # Default hours
+            for scenario in scenarios:
+                probabilities.append(self.scenarios[scenario]['probability'])
+        
+        # Ensure probabilities sum to 1
+        probabilities = np.array(probabilities)
+        probabilities = probabilities / probabilities.sum()
+        
         return np.random.choice(scenarios, p=probabilities)
         
     def generate_data_point(self):
