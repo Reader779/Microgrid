@@ -1,82 +1,127 @@
 
 import numpy as np
 from datetime import datetime, timedelta
+import math
 
 class GridDataset:
     def __init__(self):
-        # Base nominal values
         self.nominal_voltage = 230
         self.nominal_frequency = 50
         
-        # Define different grid scenarios
+        # Realistic grid scenarios with more detailed parameters
         self.scenarios = {
             'normal': {
-                'voltage_var': 2,
-                'freq_var': 0.1,
-                'probability': 0.7
+                'voltage_var': 1.5,
+                'freq_var': 0.08,
+                'probability': 0.65,
+                'recovery_time': 2
             },
             'peak_load': {
-                'voltage_var': 4,
-                'freq_var': 0.3,
-                'probability': 0.15
+                'voltage_var': 3.5,
+                'freq_var': 0.25,
+                'probability': 0.15,
+                'recovery_time': 5
             },
-            'low_load': {
-                'voltage_var': 3,
-                'freq_var': 0.2,
-                'probability': 0.1
+            'renewable_fluctuation': {
+                'voltage_var': 4.0,
+                'freq_var': 0.3,
+                'probability': 0.1,
+                'recovery_time': 4
             },
             'fault': {
-                'voltage_var': 8,
+                'voltage_var': 8.0,
                 'freq_var': 0.5,
-                'probability': 0.05
+                'probability': 0.05,
+                'recovery_time': 8
+            },
+            'weather_impact': {
+                'voltage_var': 5.0,
+                'freq_var': 0.35,
+                'probability': 0.05,
+                'recovery_time': 6
             }
         }
         
-        # Time-based patterns
         self.hour = datetime.now().hour
+        self.last_event_time = datetime.now()
+        self.current_scenario = 'normal'
+        self.event_duration = 0
+        
+    def _apply_time_patterns(self, value, is_voltage=True):
+        """Apply realistic time-based patterns to values"""
+        hour = datetime.now().hour
+        
+        # Daily load curve effect (24-hour pattern)
+        time_factor = math.sin(2 * math.pi * (hour - 6) / 24)  # Peak at 12-14h
+        
+        if is_voltage:
+            # Voltage typically drops during peak hours
+            return value - (time_factor * 2.5)
+        else:
+            # Frequency variations are smaller during night
+            return value + (time_factor * 0.15)
+            
+    def _apply_weather_impact(self):
+        """Simulate weather impacts on grid stability"""
+        # Simple weather pattern simulation
+        hour = datetime.now().hour
+        weather_impact = math.sin(2 * math.pi * hour / 12) * 0.5
+        return weather_impact
         
     def _get_current_scenario(self):
-        scenarios = list(self.scenarios.keys())
-        probabilities = []
-        
-        # Calculate probabilities based on time of day
-        if 9 <= self.hour <= 17:  # Peak hours
-            for scenario in scenarios:
-                if scenario == 'peak_load':
-                    probabilities.append(0.25)
-                elif scenario == 'normal':
-                    probabilities.append(0.55)
-                elif scenario == 'low_load':
-                    probabilities.append(0.15)
-                else:
-                    probabilities.append(0.05)
+        if (datetime.now() - self.last_event_time).seconds < self.event_duration:
+            return self.current_scenario
+            
+        # Time-based probabilities
+        if 9 <= self.hour <= 17:  # Business hours
+            scenario_weights = {
+                'normal': 0.55,
+                'peak_load': 0.25,
+                'renewable_fluctuation': 0.1,
+                'fault': 0.05,
+                'weather_impact': 0.05
+            }
         elif 0 <= self.hour <= 5:  # Night hours
-            for scenario in scenarios:
-                if scenario == 'low_load':
-                    probabilities.append(0.2)
-                elif scenario == 'normal':
-                    probabilities.append(0.65)
-                elif scenario == 'peak_load':
-                    probabilities.append(0.1)
-                else:
-                    probabilities.append(0.05)
-        else:  # Default hours
-            for scenario in scenarios:
-                probabilities.append(self.scenarios[scenario]['probability'])
+            scenario_weights = {
+                'normal': 0.8,
+                'peak_load': 0.05,
+                'renewable_fluctuation': 0.05,
+                'fault': 0.05,
+                'weather_impact': 0.05
+            }
+        else:  # Transition hours
+            scenario_weights = {s: self.scenarios[s]['probability'] for s in self.scenarios}
+            
+        scenarios = list(scenario_weights.keys())
+        probabilities = list(scenario_weights.values())
         
         # Ensure probabilities sum to 1
         probabilities = np.array(probabilities)
         probabilities = probabilities / probabilities.sum()
         
-        return np.random.choice(scenarios, p=probabilities)
+        self.current_scenario = np.random.choice(scenarios, p=probabilities)
+        self.last_event_time = datetime.now()
+        self.event_duration = self.scenarios[self.current_scenario]['recovery_time']
+        
+        return self.current_scenario
         
     def generate_data_point(self):
+        """Generate a realistic data point with various factors"""
         scenario = self._get_current_scenario()
         scenario_params = self.scenarios[scenario]
         
-        # Generate base values with scenario-specific variation
+        # Base value generation
         voltage = np.random.normal(self.nominal_voltage, scenario_params['voltage_var'])
         frequency = np.random.normal(self.nominal_frequency, scenario_params['freq_var'])
+        
+        # Apply time patterns
+        voltage = self._apply_time_patterns(voltage, is_voltage=True)
+        frequency = self._apply_time_patterns(frequency, is_voltage=False)
+        
+        # Apply weather effects
+        weather_effect = self._apply_weather_impact()
+        voltage += weather_effect
+        frequency += weather_effect * 0.1
         
         # Apply constraints
         voltage = np.clip(voltage, self.nominal_voltage - 15, self.nominal_voltage + 15)
