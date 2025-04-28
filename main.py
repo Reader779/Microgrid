@@ -77,8 +77,8 @@ def background_task():
                 voltage_deviation = NOMINAL_VOLTAGE - voltage
                 frequency_deviation = NOMINAL_FREQUENCY - frequency
 
-            # Apply automatic stabilization if enabled (standard mode)
-            if auto_stabilize and stabilize_enabled:
+            # Only apply automatic stabilization if explicitly enabled
+            if auto_stabilize and stabilize_enabled and not perfect_stabilization:
                 # Apply faster corrections (40% per cycle)
                 voltage_correction = voltage_deviation * 0.4
                 frequency_correction = frequency_deviation * 0.4
@@ -86,10 +86,15 @@ def background_task():
                 # Update offsets to stabilize the system with stronger adjustments
                 voltage_offset += voltage_correction * 2.0
                 frequency_offset += frequency_correction * 2.0
+            else:
+                # When auto-stabilize is off, don't modify the offsets
+                voltage_correction = 0
+                frequency_correction = 0
 
-                # Log significant corrections
-                if abs(voltage_correction) > 0.5 or abs(frequency_correction) > 0.05:
-                    logging.debug(f"Auto-stabilizing: V:{voltage_correction:.2f}, F:{frequency_correction:.2f}")
+            # Log significant corrections
+            if abs(voltage_correction) > 0.5 or abs(frequency_correction) > 0.05:
+                logging.debug(f"Auto-stabilizing: V:{voltage_correction:.2f}, F:{frequency_correction:.2f}")
+
 
         # Update sequences
         voltage_sequence.append(voltage)

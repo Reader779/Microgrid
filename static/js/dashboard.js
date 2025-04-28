@@ -280,6 +280,9 @@ function destabilizeSystem() {
     // Keep track of destabilized state
     isDestabilized = true;
 
+    // Ensure auto-stabilize is off
+    document.getElementById('autoStabilize').checked = false;
+    
     // Force standard mode and notify server
     document.getElementById('standardMode').checked = true;
     document.getElementById('perfectMode').checked = false;
@@ -288,6 +291,9 @@ function destabilizeSystem() {
         destabilize: true,
         force_manual: true
     });
+    
+    // Notify server about auto-stabilize state
+    socket.emit('set_auto_stabilize', { enabled: false });
 
     // Set to destabilized state 
     btn.innerHTML = '<i class="bi bi-lightning-fill"></i> System Destabilized';
