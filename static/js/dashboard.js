@@ -277,14 +277,12 @@ function adjustCustomValue(type, direction) {
 function destabilizeSystem() {
     const btn = document.getElementById('destabilizeBtn');
 
-    // Force disable auto-stabilization and prevent it from being enabled
-    const autoStabilizeCheckbox = document.getElementById('autoStabilize');
-    autoStabilizeCheckbox.checked = false;
-    autoStabilizeCheckbox.disabled = true;
-    socket.emit('set_auto_stabilize', { enabled: false });
+    // Keep track of destabilized state
+    isDestabilized = true;
 
-    // Make sure we're in standard mode (not perfect)
+    // Force standard mode and notify server
     document.getElementById('standardMode').checked = true;
+    document.getElementById('perfectMode').checked = false;
     socket.emit('set_stabilization_mode', { 
         perfect_mode: false,
         destabilize: true,
@@ -292,7 +290,6 @@ function destabilizeSystem() {
     });
 
     // Set to destabilized state 
-    isDestabilized = true;
     btn.innerHTML = '<i class="bi bi-lightning-fill"></i> System Destabilized';
     btn.classList.add('active');
 
@@ -306,32 +303,6 @@ function destabilizeSystem() {
     adjustValue('voltage', randomVoltage);
     adjustValue('frequency', randomFrequency);
 
-    // If system already has significant deviations, apply different pattern
-    /*if (voltageDeviation > 5 || frequencyDeviation > 0.3) {
-        // Apply more extreme offsets if already destabilized
-        // Use opposite direction from current deviation to create oscillation
-        const voltageDir = currentVoltage > 230 ? -1 : 1;
-        const frequencyDir = currentFrequency > 50 ? -1 : 1;
-
-        const extremeVoltageOffset = (8 + Math.random() * 7) * voltageDir; // 8-15V in opposite direction
-        const extremeFrequencyOffset = (0.6 + Math.random() * 0.4) * frequencyDir; // 0.6-1.0Hz in opposite direction
-
-        // Apply the more extreme values
-        adjustValue('voltage', extremeVoltageOffset);
-        adjustValue('frequency', extremeFrequencyOffset);
-
-        updateStabilizationStatus('Critical System Fluctuation', 'bg-danger');
-    } else {
-        // Initial moderate destabilization
-        const moderateVoltageOffset = Math.random() > 0.5 ? 12 : -12;
-        const moderateFrequencyOffset = Math.random() > 0.5 ? 0.7 : -0.7;
-
-        // Apply the moderate values
-        adjustValue('voltage', moderateVoltageOffset);
-        adjustValue('frequency', moderateFrequencyOffset);
-
-        updateStabilizationStatus('System Destabilized', 'bg-danger');
-    }*/
 
     // Update ML analysis and recommendations immediately
     updateMachineLearningAnalysis(true);
@@ -341,7 +312,7 @@ function destabilizeSystem() {
     setTimeout(() => {
         btn.innerHTML = '<i class="bi bi-lightning-fill"></i> Destabilize System';
         btn.classList.remove('active');
-        autoStabilizeCheckbox.disabled = false; // Re-enable auto-stabilize after 3 seconds
+        //autoStabilizeCheckbox.disabled = false; // Re-enable auto-stabilize after 3 seconds
     }, 3000);
 }
 

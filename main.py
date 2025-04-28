@@ -47,8 +47,10 @@ def background_task():
     global voltage_offset, frequency_offset, stabilization_quality, last_destabilize_time
 
     while True:
-        # Update stabilization quality if system is stable
-        if auto_stabilize and stabilize_enabled and time.time() - last_destabilize_time > 10:
+        # Only improve stabilization quality if not in destabilized state
+        if (auto_stabilize and stabilize_enabled and 
+            time.time() - last_destabilize_time > 10 and
+            not data.get('destabilize', False)):
             stabilization_quality = min(1.0, stabilization_quality + STABILITY_GAIN_RATE)
         # Generate new data point with manual adjustments
         base_voltage, base_frequency = data_simulator.generate_data_point()
