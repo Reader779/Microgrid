@@ -52,6 +52,8 @@ def background_task():
             stabilization_quality = min(1.0, stabilization_quality + STABILITY_GAIN_RATE)
         # Generate new data point with manual adjustments
         base_voltage, base_frequency = data_simulator.generate_data_point()
+        current_scenario = data_simulator.current_scenario
+        logging.debug(f"Current scenario: {current_scenario}")
         
         # Adaptive stabilization based on system learning
         if auto_stabilize and stabilize_enabled:
