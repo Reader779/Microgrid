@@ -177,7 +177,7 @@ function showAnalysis() {
         <p>Average Voltage: ${avgVoltage.toFixed(2)}V<br>
            Average Frequency: ${avgFrequency.toFixed(2)}Hz</p>
     `;
-    
+
     // Update ML analysis and recommendations when analysis is shown
     updateMachineLearningAnalysis();
     updateSystemRecommendations();
@@ -252,7 +252,7 @@ function adjustCustomValue(type, direction) {
     const inputId = type === 'voltage' ? 'customVoltage' : 'customFrequency';
     const input = document.getElementById(inputId);
     let value = parseFloat(input.value);
-    
+
     if (direction > 0) {
         if (type === 'voltage') {
             value = Math.min(25, value + 1);
@@ -266,9 +266,9 @@ function adjustCustomValue(type, direction) {
             value = Math.max(0.1, value - 0.1);
         }
     }
-    
+
     input.value = type === 'voltage' ? value : value.toFixed(1);
-    
+
     // Apply the custom value
     adjustValue(type, type === 'voltage' ? value : value);
 }
@@ -276,74 +276,72 @@ function adjustCustomValue(type, direction) {
 // Destabilize the system
 function destabilizeSystem() {
     const btn = document.getElementById('destabilizeBtn');
-    
-    // Force disable auto-stabilization first
-    document.getElementById('autoStabilize').checked = false;
+
+    // Force disable auto-stabilization and prevent it from being enabled
+    const autoStabilizeCheckbox = document.getElementById('autoStabilize');
+    autoStabilizeCheckbox.checked = false;
+    autoStabilizeCheckbox.disabled = true;
     socket.emit('set_auto_stabilize', { enabled: false });
-    
+
     // Make sure we're in standard mode (not perfect)
     document.getElementById('standardMode').checked = true;
-    socket.emit('set_stabilization_mode', { perfect_mode: false });
-    
-    // Notify server about destabilization
-    socket.emit('set_stabilization_mode', {
+    socket.emit('set_stabilization_mode', { 
         perfect_mode: false,
-        destabilize: true
+        destabilize: true,
+        force_manual: true
     });
-    
-    // Check current state for progressive destabilization
-    const currentVoltage = voltageData[voltageData.length - 1] || 230;
-    const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
-    const voltageDeviation = Math.abs(230 - currentVoltage);
-    const frequencyDeviation = Math.abs(50 - currentFrequency);
-    
+
     // Set to destabilized state 
     isDestabilized = true;
     btn.innerHTML = '<i class="bi bi-lightning-fill"></i> System Destabilized';
     btn.classList.add('active');
-    
+
     // Enable the immediate stabilize button
     document.getElementById('immediateStabilizeBtn').disabled = false;
-    
-    // Apply significant destabilizing offsets
-    adjustValue('voltage', 12);
-    adjustValue('frequency', 0.7);
-    
+
+    // Apply random destabilizing offsets for more unpredictable behavior
+    const randomVoltage = (Math.random() < 0.5 ? -1 : 1) * (8 + Math.random() * 7);
+    const randomFrequency = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+
+    adjustValue('voltage', randomVoltage);
+    adjustValue('frequency', randomFrequency);
+
     // If system already has significant deviations, apply different pattern
-    if (voltageDeviation > 5 || frequencyDeviation > 0.3) {
+    /*if (voltageDeviation > 5 || frequencyDeviation > 0.3) {
         // Apply more extreme offsets if already destabilized
         // Use opposite direction from current deviation to create oscillation
         const voltageDir = currentVoltage > 230 ? -1 : 1;
         const frequencyDir = currentFrequency > 50 ? -1 : 1;
-        
+
         const extremeVoltageOffset = (8 + Math.random() * 7) * voltageDir; // 8-15V in opposite direction
         const extremeFrequencyOffset = (0.6 + Math.random() * 0.4) * frequencyDir; // 0.6-1.0Hz in opposite direction
-        
+
         // Apply the more extreme values
         adjustValue('voltage', extremeVoltageOffset);
         adjustValue('frequency', extremeFrequencyOffset);
-        
+
         updateStabilizationStatus('Critical System Fluctuation', 'bg-danger');
     } else {
         // Initial moderate destabilization
         const moderateVoltageOffset = Math.random() > 0.5 ? 12 : -12;
         const moderateFrequencyOffset = Math.random() > 0.5 ? 0.7 : -0.7;
-        
+
         // Apply the moderate values
         adjustValue('voltage', moderateVoltageOffset);
         adjustValue('frequency', moderateFrequencyOffset);
-        
+
         updateStabilizationStatus('System Destabilized', 'bg-danger');
-    }
-    
+    }*/
+
     // Update ML analysis and recommendations immediately
     updateMachineLearningAnalysis(true);
     updateSystemRecommendations(true);
-    
+
     // Reset button after 3 seconds but keep system destabilized state
     setTimeout(() => {
         btn.innerHTML = '<i class="bi bi-lightning-fill"></i> Destabilize System';
         btn.classList.remove('active');
+        autoStabilizeCheckbox.disabled = false; // Re-enable auto-stabilize after 3 seconds
     }, 3000);
 }
 
@@ -353,35 +351,35 @@ function immediateStabilize() {
     if (!isDestabilized) {
         return;
     }
-    
+
     // Get the current values
     const currentVoltage = voltageData[voltageData.length - 1] || 230;
     const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
-    
+
     // Calculate exact corrections needed to return to nominal values
     const voltageCorrection = 230 - currentVoltage;
     const frequencyCorrection = 50 - currentFrequency;
-    
+
     // Apply immediate corrections
     adjustValue('voltage', voltageCorrection);
     adjustValue('frequency', frequencyCorrection);
-    
+
     // Set the auto-stabilization to enabled
     document.getElementById('autoStabilize').checked = true;
     socket.emit('set_auto_stabilize', { enabled: true });
-    
+
     // Update status indicators
     isDestabilized = false;
     isStabilizing = false;
-    
+
     // Ask if user wants perfect stabilization after immediate stabilization
     const perfectModePrompt = confirm("Would you like to enable Perfect Stabilization Mode for continuous perfect stability?");
-    
+
     if (perfectModePrompt) {
         // Enable perfect mode
         document.getElementById('perfectMode').checked = true;
         socket.emit('set_stabilization_mode', { perfect_mode: true });
-        
+
         // Update UI elements
         updateStabilizationStatus('Perfect Stabilization Enabled', 'bg-success');
         document.getElementById('destabilizeBtn').disabled = true;
@@ -389,31 +387,31 @@ function immediateStabilize() {
         // Stay in standard mode
         document.getElementById('standardMode').checked = true;
         socket.emit('set_stabilization_mode', { perfect_mode: false });
-        
+
         // Update UI elements
         updateStabilizationStatus('Immediate Stabilization Applied', 'bg-success');
     }
-    
+
     // Disable immediate stabilize button
     document.getElementById('immediateStabilizeBtn').disabled = true;
-    
+
     // Visual feedback on the button
     const btn = document.getElementById('immediateStabilizeBtn');
     btn.classList.add('active');
-    
+
     // Update ML analysis and recommendations immediately
     updateMachineLearningAnalysis(true);
     updateSystemRecommendations(true);
-    
+
     // Reset button appearance after 2 seconds
     setTimeout(() => {
         btn.classList.remove('active');
-        
+
         if (document.getElementById('perfectMode').checked) {
             updateStabilizationStatus('Perfect Stability Active', 'bg-success');
         } else {
             updateStabilizationStatus('System Stabilized', 'bg-success');
-            
+
             // Reset to monitoring state after another 2 seconds
             setTimeout(() => {
                 updateStabilizationStatus('System Monitoring Active', 'bg-secondary');
@@ -427,41 +425,41 @@ function recoverSystem() {
     // Calculate correction values (opposite of current offsets)
     const currentVoltage = voltageData[voltageData.length - 1] || 230;
     const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
-    
+
     // Calculate how far we are from nominal values
     const voltageCorrection = 230 - currentVoltage;
     const frequencyCorrection = 50 - currentFrequency;
-    
+
     // Apply necessary corrections to bring system back to nominal values
     adjustValue('voltage', voltageCorrection);
     adjustValue('frequency', frequencyCorrection);
-    
+
     // Ensure auto-stabilization is enabled
     document.getElementById('autoStabilize').checked = true;
     socket.emit('set_auto_stabilize', { enabled: true });
-    
+
     // Update status indicators
     isStabilizing = true;
     isDestabilized = false;  // Ensure we're no longer in destabilized state
-    
+
     // Disable the immediate stabilize button since we're recovering
     document.getElementById('immediateStabilizeBtn').disabled = true;
-    
+
     // Show specific correction values in the status
     updateStabilizationStatus(`Applying Correction: V:${voltageCorrection.toFixed(1)}V, F:${frequencyCorrection.toFixed(2)}Hz`, 'bg-warning');
-    
+
     // Short stabilization process since we've already applied corrections
     if (stabilizationTimer) clearTimeout(stabilizationTimer);
     stabilizationTimer = setTimeout(() => {
         isStabilizing = false;
         updateStabilizationStatus('System Stabilized', 'bg-success');
-        
+
         // Reset to monitoring state after 3 seconds
         setTimeout(() => {
             updateStabilizationStatus('System Monitoring Active', 'bg-secondary');
         }, 3000);
     }, 3000);
-    
+
     // Update ML analysis and recommendations immediately
     updateMachineLearningAnalysis(true);
     updateSystemRecommendations(true);
@@ -481,13 +479,13 @@ let lastFrequencyAnalysis = { status: null, class: null, percent: null };
 function updateMachineLearningAnalysis(immediate = false) {
     // Clear any existing timer
     if (mlAnalysisTimer) clearTimeout(mlAnalysisTimer);
-    
+
     // Get DOM elements
     const voltageTrend = document.getElementById('voltageTrend');
     const voltageTrendBar = document.getElementById('voltageTrendBar');
     const frequencyTrend = document.getElementById('frequencyTrend');
     const frequencyTrendBar = document.getElementById('frequencyTrendBar');
-    
+
     // Function to perform the analysis
     const performAnalysis = () => {
         // Analyze voltage trend
@@ -501,15 +499,15 @@ function updateMachineLearningAnalysis(immediate = false) {
             // Analyze voltage trend
             const recentVoltage = voltageData.slice(-5);
             const voltageChanges = [];
-            
+
             for (let i = 1; i < recentVoltage.length; i++) {
                 voltageChanges.push(recentVoltage[i] - recentVoltage[i-1]);
             }
-            
+
             const avgVoltageChange = voltageChanges.reduce((a, b) => a + b, 0) / voltageChanges.length;
             const currentVoltage = voltageData[voltageData.length - 1] || 230;
             const voltageDeviation = Math.abs(230 - currentVoltage);
-            
+
             // Check for edge cases - large manual adjustments
             if (voltageDeviation > 15) {
                 lastVoltageAnalysis = {
@@ -536,7 +534,7 @@ function updateMachineLearningAnalysis(immediate = false) {
                     percent: 40
                 };
             }
-            
+
             // If destabilized, show moderate warning
             if (isDestabilized) {
                 lastVoltageAnalysis = {
@@ -546,7 +544,7 @@ function updateMachineLearningAnalysis(immediate = false) {
                 };
             }
         }
-        
+
         // Analyze frequency trend
         if (frequencyData.length < 5) {
             lastFrequencyAnalysis = {
@@ -558,15 +556,15 @@ function updateMachineLearningAnalysis(immediate = false) {
             // Analyze frequency trend
             const recentFrequency = frequencyData.slice(-5);
             const frequencyChanges = [];
-            
+
             for (let i = 1; i < recentFrequency.length; i++) {
                 frequencyChanges.push(recentFrequency[i] - recentFrequency[i-1]);
             }
-            
+
             const avgFrequencyChange = frequencyChanges.reduce((a, b) => a + b, 0) / frequencyChanges.length;
             const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
             const frequencyDeviation = Math.abs(50 - currentFrequency);
-            
+
             // Check for edge cases - large manual adjustments
             if (frequencyDeviation > 2) {
                 lastFrequencyAnalysis = {
@@ -593,7 +591,7 @@ function updateMachineLearningAnalysis(immediate = false) {
                     percent: 40
                 };
             }
-            
+
             // If destabilized, show moderate warning
             if (isDestabilized) {
                 lastFrequencyAnalysis = {
@@ -603,11 +601,11 @@ function updateMachineLearningAnalysis(immediate = false) {
                 };
             }
         }
-        
+
         // Update the UI with the analysis results
         updateAnalysisDisplay();
     };
-    
+
     // Function to update display with last analysis results
     function updateAnalysisDisplay() {
         // Only update if we have analysis results
@@ -617,7 +615,7 @@ function updateMachineLearningAnalysis(immediate = false) {
             voltageTrendBar.style.width = `${lastVoltageAnalysis.percent}%`;
             voltageTrendBar.className = `progress-bar ${lastVoltageAnalysis.class}`;
         }
-        
+
         if (lastFrequencyAnalysis.status) {
             frequencyTrend.textContent = lastFrequencyAnalysis.status;
             frequencyTrend.className = `badge ${lastFrequencyAnalysis.class}`;
@@ -625,7 +623,7 @@ function updateMachineLearningAnalysis(immediate = false) {
             frequencyTrendBar.className = `progress-bar ${lastFrequencyAnalysis.class}`;
         }
     }
-    
+
     // If we have previous analysis, show it first to avoid flicker
     if (lastVoltageAnalysis.status && lastFrequencyAnalysis.status) {
         updateAnalysisDisplay();
@@ -635,13 +633,13 @@ function updateMachineLearningAnalysis(immediate = false) {
         voltageTrend.className = 'badge bg-secondary';
         voltageTrendBar.style.width = '50%';
         voltageTrendBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
-        
+
         frequencyTrend.textContent = 'Analyzing...';
         frequencyTrend.className = 'badge bg-secondary';
         frequencyTrendBar.style.width = '50%';
         frequencyTrendBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
     }
-    
+
     // Either perform analysis immediately or after a short delay
     if (immediate) {
         performAnalysis();
@@ -655,9 +653,9 @@ function updateSystemRecommendations(immediate = false) {
     const recommendations = document.getElementById('systemRecommendations');
     const voltageStability = calculateStability(voltageData, 230, 5);
     const frequencyStability = calculateStability(frequencyData, 50, 0.5);
-    
+
     let recommendationText = '';
-    
+
     // Calculate required manual adjustments
     const currentVoltage = voltageData[voltageData.length - 1] || 230;
     const currentFrequency = frequencyData[frequencyData.length - 1] || 50;
@@ -665,7 +663,7 @@ function updateSystemRecommendations(immediate = false) {
     const frequencyCorrection = (50 - currentFrequency).toFixed(2);
     const voltageDirection = voltageCorrection > 0 ? "increase" : "decrease";
     const frequencyDirection = frequencyCorrection > 0 ? "increase" : "decrease";
-    
+
     // Show professional alert if the system was destabilized
     if (isDestabilized) {
         recommendationText = `
@@ -750,7 +748,7 @@ function updateSystemRecommendations(immediate = false) {
             </div>
         `;
     }
-    
+
     recommendations.innerHTML = recommendationText;
 }
 
@@ -759,11 +757,11 @@ document.getElementById('autoStabilize').addEventListener('change', function(e) 
     socket.emit('set_auto_stabilize', {
         enabled: e.target.checked
     });
-    
+
     if (e.target.checked && isDestabilized) {
         recoverSystem();
     }
-    
+
     updateSystemRecommendations();
 });
 
@@ -774,10 +772,10 @@ document.getElementById('standardMode').addEventListener('change', function() {
             perfect_mode: false
         });
         updateStabilizationStatus('Standard Stabilization Mode', 'bg-secondary');
-        
+
         // Re-enable the destabilize button when switching to standard mode
         document.getElementById('destabilizeBtn').disabled = false;
-        
+
         // After a moment, revert to normal status display
         setTimeout(() => {
             if (!isDestabilized && !isStabilizing) {
@@ -793,7 +791,7 @@ document.getElementById('perfectMode').addEventListener('change', function() {
             perfect_mode: true
         });
         updateStabilizationStatus('Perfect Stabilization Mode', 'bg-success');
-        
+
         // If auto-stabilize is not enabled, suggest enabling it
         if (!document.getElementById('autoStabilize').checked) {
             // Show a notification
@@ -808,10 +806,10 @@ document.getElementById('perfectMode').addEventListener('change', function() {
                 </div>
             `;
         }
-        
+
         // Disable the destabilize button in perfect mode
         document.getElementById('destabilizeBtn').disabled = true;
-        
+
         // After a few seconds, revert to normal status display but keep success color
         setTimeout(() => {
             if (!isDestabilized && !isStabilizing) {
