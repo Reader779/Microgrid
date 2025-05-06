@@ -1,6 +1,7 @@
 from datetime import datetime
 from app import db
 
+
 class MeasurementRecord(db.Model):
     """Model for storing voltage and frequency measurements"""
     id = db.Column(db.Integer, primary_key=True)
@@ -28,16 +29,18 @@ class MeasurementRecord(db.Model):
             'frequency_action': self.frequency_action
         }
 
+
 class ModelParameters(db.Model):
     """Model for storing LSTM model parameters"""
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    parameter_type = db.Column(db.String(50), nullable=False)  # 'voltage' or 'frequency'
-    model_state = db.Column(db.LargeBinary, nullable=False)  # Serialized PyTorch state dict
-    performance_metric = db.Column(db.Float)  # e.g., validation loss
-    
+    parameter_type = db.Column(db.String(50), nullable=False)
+    model_state = db.Column(db.LargeBinary, nullable=False)
+    performance_metric = db.Column(db.Float)
+
     def __repr__(self):
         return f'<ModelParameters {self.parameter_type} at {self.timestamp}>'
+
 
 class SystemConfig(db.Model):
     """Model for storing system configuration parameters"""
@@ -47,8 +50,10 @@ class SystemConfig(db.Model):
     voltage_tolerance = db.Column(db.Float, nullable=False, default=5.0)
     frequency_tolerance = db.Column(db.Float, nullable=False, default=0.5)
     sequence_length = db.Column(db.Integer, nullable=False, default=10)
-    update_interval = db.Column(db.Float, nullable=False, default=1.0)  # seconds
-    last_updated = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    update_interval = db.Column(db.Float, nullable=False, default=1.0)
+    last_updated = db.Column(db.DateTime,
+                             nullable=False,
+                             default=datetime.utcnow)
 
     def __repr__(self):
         return f'<SystemConfig id={self.id} updated={self.last_updated}>'

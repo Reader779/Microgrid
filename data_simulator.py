@@ -14,7 +14,6 @@ class DataSimulator:
         voltage, frequency, scenario = self.dataset.generate_data_point()
         self.current_scenario = scenario
         
-        # Track stability metrics
         voltage_deviation = abs(voltage - self.dataset.nominal_voltage)
         freq_deviation = abs(frequency - self.dataset.nominal_frequency)
         

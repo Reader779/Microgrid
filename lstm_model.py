@@ -21,8 +21,7 @@ class LSTM(nn.Module):
 class LSTMPredictor:
     def __init__(self):
         self.model = LSTM()
-        self.model.eval()  # Set to evaluation mode
-        
+        self.model.eval() 
     def predict(self, sequence):
         """Make prediction for the next value"""
         with torch.no_grad():
