@@ -1,4 +1,5 @@
 // Initialize Socket.IO connection
+
 const socket = io();
 
 // Enable immediate stabilize button when system is destabilized
